@@ -245,13 +245,26 @@ def resolve_db_path(db_path: Union[str, Path] = "data/zola_predict.db") -> Path:
                 target,
                 Path(__file__).resolve().parent.parent.parent / "data" / "zola_predict.db",
                 Path(os.getcwd()) / "data" / "zola_predict.db",
+                Path("/var/task/data/zola_predict.db"),
+                Path.cwd() / "data" / "zola_predict.db",
             ]
             for cand in candidates:
-                if cand.exists() and cand.is_file() and cand.stat().st_size > 0:
-                    import shutil
-                    tmp_db.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(cand, tmp_db)
-                    break
+                try:
+                    if cand.exists() and cand.is_file() and cand.stat().st_size > 0:
+                        import shutil
+                        tmp_db.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(cand, tmp_db)
+                        break
+                except Exception:
+                    continue
+
+            # Fallback initialization if bundled database was not found
+            if not tmp_db.exists() or tmp_db.stat().st_size == 0:
+                try:
+                    init_db(tmp_db)
+                except Exception:
+                    pass
+
         if tmp_db.exists():
             return tmp_db
 

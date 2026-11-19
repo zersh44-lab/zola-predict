@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
 # Ensure root workspace directory is on sys.path
@@ -23,14 +24,27 @@ class handler(DashboardRequestHandler):
 
     def _normalize_vercel_path(self) -> None:
         """Restore true client URL path if rewritten by Vercel Edge routing."""
-        matched = (
-            self.headers.get("x-matched-path")
-            or self.headers.get("x-forwarded-uri")
-        )
-        if matched and (self.path.startswith("/api/index.py") or self.path == "/api"):
-            if "?" in self.path and "?" not in matched:
-                matched += "?" + self.path.split("?", 1)[1]
-            self.path = matched
+        parsed = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+
+        if "__route__" in qs:
+            actual_path = qs.pop("__route__")[0]
+            if not actual_path.startswith("/"):
+                actual_path = "/" + actual_path
+            pairs = []
+            for k, vals in qs.items():
+                for v in vals:
+                    pairs.append((k, v))
+            remaining = urllib.parse.urlencode(pairs)
+            self.path = actual_path + ("?" + remaining if remaining else "")
+            return
+
+        # Fallback to headers if present and valid
+        for hdr in ("x-now-route-matches", "x-matched-path", "x-forwarded-uri"):
+            val = self.headers.get(hdr)
+            if val and not val.startswith("/api/index.py") and val != "/api":
+                self.path = val
+                return
 
     def do_GET(self) -> None:
         self._normalize_vercel_path()
