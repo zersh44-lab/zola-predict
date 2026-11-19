@@ -77,9 +77,11 @@ def test_dashboard_index_html(test_dashboard_server):
     req = urllib.request.Request(f"{base_url}/")
     with urllib.request.urlopen(req, timeout=5) as resp:
         assert resp.status == 200
+        assert "no-store" in resp.headers.get("Cache-Control", "")
         content = resp.read().decode("utf-8")
         assert "Zola Predict" in content
         assert "Consensus 1X2 Recommendation" in content
+        assert "SMART-ROUTED" in content
 
 
 def test_api_status(test_dashboard_server):

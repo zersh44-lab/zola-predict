@@ -49,11 +49,14 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def _send_html(self, html_content: str, status_code: int = 200) -> None:
-        """Send HTML document response."""
+        """Send HTML document response with strict no-cache headers to prevent stale UI caching."""
         payload = html_content.encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(payload)
 
@@ -77,6 +80,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         # 1. Static HTML Frontend & Brand Assets
         if path in ("/", "/index.html"):
             index_path = STATIC_DIR / "index.html"
+            if not index_path.exists():
+                alt_path = Path(__file__).resolve().parent.parent.parent / "public" / "index.html"
+                if alt_path.exists():
+                    index_path = alt_path
+
             if index_path.exists():
                 self._send_html(index_path.read_text(encoding="utf-8"))
             else:
