@@ -119,6 +119,24 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
         # 2. System Status & Summary Stats
         if path == "/api/status":
+            import os
+            from pathlib import Path
+            root_cand = Path(__file__).resolve().parent.parent.parent / "data" / "zola_predict.db"
+            tmp_p = Path("/tmp/zola_predict.db")
+            diag = {
+                "cwd": os.getcwd(),
+                "file": __file__,
+                "target_exists": Path("data/zola_predict.db").exists(),
+                "target_size": Path("data/zola_predict.db").stat().st_size if Path("data/zola_predict.db").exists() else 0,
+                "root_data_exists": root_cand.exists(),
+                "root_data_size": root_cand.stat().st_size if root_cand.exists() else 0,
+                "var_task_exists": Path("/var/task/data/zola_predict.db").exists(),
+                "var_task_size": Path("/var/task/data/zola_predict.db").stat().st_size if Path("/var/task/data/zola_predict.db").exists() else 0,
+                "tmp_exists": tmp_p.exists(),
+                "tmp_size": tmp_p.stat().st_size if tmp_p.exists() else 0,
+                "env_vercel": os.environ.get("VERCEL"),
+            }
+
             conn = get_connection(db_path)
             try:
                 repo = FootballRepository(conn)
@@ -128,6 +146,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
                 self._send_json({
                     "status": "online",
+                    "diagnostics": diag,
                     "football_api_provider": settings.football_api_provider,
                     "ai_provider": settings.ai_provider,
                     "ollama_base_url": settings.ollama_base_url,
