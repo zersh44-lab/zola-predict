@@ -240,30 +240,45 @@ def resolve_db_path(db_path: Union[str, Path] = "data/zola_predict.db") -> Path:
             return target
 
         tmp_db = Path("/tmp/zola_predict.db")
-        if not tmp_db.exists() or tmp_db.stat().st_size == 0:
-            candidates = [
-                target,
-                Path(__file__).resolve().parent.parent.parent / "data" / "zola_predict.db",
-                Path(os.getcwd()) / "data" / "zola_predict.db",
-                Path("/var/task/data/zola_predict.db"),
-                Path.cwd() / "data" / "zola_predict.db",
-            ]
-            for cand in candidates:
-                try:
-                    if cand.exists() and cand.is_file() and cand.stat().st_size > 0:
-                        import shutil
-                        tmp_db.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(cand, tmp_db)
-                        break
-                except Exception:
-                    continue
+        candidates = [
+            target,
+            Path(__file__).resolve().parent.parent.parent / "data" / "zola_predict.db",
+            Path(os.getcwd()) / "data" / "zola_predict.db",
+            Path("/var/task/data/zola_predict.db"),
+            Path.cwd() / "data" / "zola_predict.db",
+        ]
+        cand_found = None
+        for cand in candidates:
+            try:
+                if cand.exists() and cand.is_file() and cand.stat().st_size > 0:
+                    cand_found = cand
+                    break
+            except Exception:
+                continue
 
-            # Fallback initialization if bundled database was not found
+        if cand_found:
+            should_copy = False
             if not tmp_db.exists() or tmp_db.stat().st_size == 0:
+                should_copy = True
+            elif tmp_db.stat().st_size != cand_found.stat().st_size:
+                should_copy = True
+            elif cand_found.stat().st_mtime > tmp_db.stat().st_mtime:
+                should_copy = True
+
+            if should_copy:
                 try:
-                    init_db(tmp_db)
+                    import shutil
+                    tmp_db.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(cand_found, tmp_db)
                 except Exception:
                     pass
+
+        # Fallback initialization if database was not found
+        if not tmp_db.exists() or tmp_db.stat().st_size == 0:
+            try:
+                init_db(tmp_db)
+            except Exception:
+                pass
 
         if tmp_db.exists():
             return tmp_db
