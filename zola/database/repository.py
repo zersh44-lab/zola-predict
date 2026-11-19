@@ -239,9 +239,9 @@ class FootballRepository:
             SELECT 
                 f.id, f.external_id, f.provider, f.utc_date, f.status, f.matchday, f.season, f.venue, f.referee,
                 f.competition_id, f.home_team_id, f.away_team_id,
-                c.name as competition_name, c.code as competition_code,
-                ht.name as home_team_name, ht.short_name as home_team_short,
-                at.name as away_team_name, at.short_name as away_team_short,
+                c.name as competition_name, c.code as competition_code, c.country as competition_country, c.emblem_url as competition_emblem,
+                ht.name as home_team_name, ht.short_name as home_team_short, ht.crest_url as home_team_crest,
+                at.name as away_team_name, at.short_name as away_team_short, at.crest_url as away_team_crest,
                 mr.winner, mr.full_time_home_score, mr.full_time_away_score,
                 mr.half_time_home_score, mr.half_time_away_score
             FROM fixtures f
@@ -255,7 +255,18 @@ class FootballRepository:
             (fixture_id,),
         )
         row = cursor.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        res = dict(row) if hasattr(row, "keys") else dict(zip([d[0] for d in cursor.description], row))
+        from zola.utils.flags import get_country_flag_url
+        res["home_team_flag"] = get_country_flag_url(res.get("home_team_name"))
+        res["away_team_flag"] = get_country_flag_url(res.get("away_team_name"))
+        res["competition_flag"] = get_country_flag_url(res.get("competition_country"))
+        if not res.get("home_team_crest"):
+            res["home_team_crest"] = res["home_team_flag"]
+        if not res.get("away_team_crest"):
+            res["away_team_crest"] = res["away_team_flag"]
+        return res
 
     def get_fixture_by_external_id(self, provider: str, external_id: str) -> Optional[Fixture]:
         """Lookup fixture by external ID and provider."""
@@ -302,9 +313,9 @@ class FootballRepository:
             SELECT 
                 f.id, f.external_id, f.provider, f.utc_date, f.status, f.matchday, f.season, f.venue,
                 f.competition_id, f.home_team_id, f.away_team_id,
-                c.name as competition_name, c.code as competition_code,
-                ht.name as home_team_name, ht.short_name as home_team_short,
-                at.name as away_team_name, at.short_name as away_team_short,
+                c.name as competition_name, c.code as competition_code, c.country as competition_country, c.emblem_url as competition_emblem,
+                ht.name as home_team_name, ht.short_name as home_team_short, ht.crest_url as home_team_crest,
+                at.name as away_team_name, at.short_name as away_team_short, at.crest_url as away_team_crest,
                 mr.winner, mr.full_time_home_score, mr.full_time_away_score
             FROM fixtures f
             JOIN competitions c ON f.competition_id = c.id
@@ -362,7 +373,25 @@ class FootballRepository:
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        from zola.utils.flags import get_country_flag_url
+        res_list = []
+        col_names = [col[0] for col in cursor.description] if cursor.description else []
+        for r in rows:
+            d = dict(r) if hasattr(r, "keys") else dict(zip(col_names, r))
+            h_flag = get_country_flag_url(d.get("home_team_name"))
+            a_flag = get_country_flag_url(d.get("away_team_name"))
+            c_flag = get_country_flag_url(d.get("competition_country"))
+            d["home_team_flag"] = h_flag
+            d["away_team_flag"] = a_flag
+            d["competition_flag"] = c_flag
+            if not d.get("home_team_crest"):
+                d["home_team_crest"] = h_flag
+            if not d.get("away_team_crest"):
+                d["away_team_crest"] = a_flag
+            if not d.get("competition_emblem"):
+                d["competition_emblem"] = c_flag
+            res_list.append(d)
+        return res_list
 
     # ---------------------------------------------------------
     # Match History Queries for Prediction Engine
@@ -1249,6 +1278,10 @@ class FootballRepository:
                     "is_correct": is_corr,
                 })
 
+            from zola.utils.flags import get_country_flag_url
+            h_flag = get_country_flag_url(r["home_name"])
+            a_flag = get_country_flag_url(r["away_name"])
+
             item = {
                 "fixture_id": fid,
                 "utc_date": r["utc_date"],
@@ -1262,12 +1295,14 @@ class FootballRepository:
                 "home_team": {
                     "id": r["home_id"],
                     "name": r["home_name"],
-                    "crest_url": r["home_crest"],
+                    "crest_url": r["home_crest"] or h_flag,
+                    "flag_url": h_flag,
                 },
                 "away_team": {
                     "id": r["away_id"],
                     "name": r["away_name"],
-                    "crest_url": r["away_crest"],
+                    "crest_url": r["away_crest"] or a_flag,
+                    "flag_url": a_flag,
                 },
                 "final_score": {
                     "home": h_score,
@@ -1868,7 +1903,8 @@ class FootballRepository:
                 ORDER BY f.utc_date ASC, f.id ASC;
             """
             cursor.execute(query, (target_date,))
-        rows = [dict(r) for r in cursor.fetchall()]
+        col_names = [col[0] for col in cursor.description] if cursor.description else []
+        rows = [dict(r) if hasattr(r, "keys") else dict(zip(col_names, r)) for r in cursor.fetchall()]
 
         from zola.utils.flags import get_country_flag_url, get_team_monogram_svg
 
@@ -1895,6 +1931,15 @@ class FootballRepository:
             f["home_team_flag"] = h_flag
             f["away_team_flag"] = a_flag
             f["competition_flag"] = c_flag
+            if not f.get("home_team_crest") or not f.get("home_team_logo"):
+                f["home_team_crest"] = f.get("home_team_crest") or f.get("home_team_logo") or h_flag
+                f["home_team_logo"] = f["home_team_crest"]
+            if not f.get("away_team_crest") or not f.get("away_team_logo"):
+                f["away_team_crest"] = f.get("away_team_crest") or f.get("away_team_logo") or a_flag
+                f["away_team_logo"] = f["away_team_crest"]
+            if not f.get("competition_logo") or not f.get("competition_emblem"):
+                f["competition_logo"] = f.get("competition_logo") or f.get("competition_emblem") or c_flag
+                f["competition_emblem"] = f["competition_logo"]
             f["home_team_fallback"] = h_flag or get_team_monogram_svg(f.get("home_team_name", ""))
             f["away_team_fallback"] = a_flag or get_team_monogram_svg(f.get("away_team_name", ""))
             st = (f.get("status") or "").upper()

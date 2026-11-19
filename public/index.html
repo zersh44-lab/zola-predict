@@ -2390,18 +2390,16 @@
 
     <div class="modal-content">
 
-      <div class="modal-header">
-
-        <div>
-
-          <div id="modal-match-title" style="font-size: 1.25rem; font-weight: 800; color: #fff;">Match Prediction</div>
-
-          <div id="modal-match-meta" style="font-size: 0.8rem; color: var(--text-muted);">Competition • Date</div>
-
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.85rem; overflow: hidden;">
+          <img id="modal-home-crest" class="team-crest" style="width: 36px; height: 36px; min-width: 36px; object-fit: contain; display: none;" src="" alt="" />
+          <div>
+            <div id="modal-match-title" style="font-size: 1.25rem; font-weight: 800; color: #fff;">Match Prediction</div>
+            <div id="modal-match-meta" style="font-size: 0.8rem; color: var(--text-muted);">Competition • Date</div>
+          </div>
+          <img id="modal-away-crest" class="team-crest" style="width: 36px; height: 36px; min-width: 36px; object-fit: contain; display: none;" src="" alt="" />
         </div>
-
         <button class="btn btn-sm btn-secondary" onclick="closeModal()">✕ Close</button>
-
       </div>
 
 
@@ -2969,29 +2967,35 @@
 
 
         data.fixtures.forEach(f => {
-
           const tr = document.createElement("tr");
-
           const time = formatKickoff(f.utc_date);
-
           const statusBadge = `<span class="badge success">SCHEDULED</span>`;
 
+          const homeName = f.home_team_name || "Home Team";
+          const awayName = f.away_team_name || "Away Team";
+          const homeEsc = safeEscape(homeName);
+          const awayEsc = safeEscape(awayName);
+          const homeFlag = f.home_team_flag || getCountryFlagUrl(homeName) || "";
+          const awayFlag = f.away_team_flag || getCountryFlagUrl(awayName) || "";
+          const homeCrest = resolveTeamCrest(homeName, f.home_team_crest || f.home_team_logo, homeFlag);
+          const awayCrest = resolveTeamCrest(awayName, f.away_team_crest || f.away_team_logo, awayFlag);
+
           tr.innerHTML = `
-
             <td><strong>${time.local}</strong><br><small style="color: var(--text-muted);">${time.utc}</small></td>
-
             <td><strong>${f.competition_name}</strong></td>
-
-            <td><strong>${f.home_team_name}</strong> vs <strong>${f.away_team_name}</strong></td>
-
+            <td>
+              <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <img class="team-crest" src="${homeCrest}" onerror="onCrestError(this, '${homeFlag}', '${homeEsc}')" style="width: 18px; height: 18px; object-fit: contain;" alt="" />
+                <span>${homeName}</span>
+                <span style="color: var(--text-muted); margin: 0 0.2rem;">vs</span>
+                <img class="team-crest" src="${awayCrest}" onerror="onCrestError(this, '${awayFlag}', '${awayEsc}')" style="width: 18px; height: 18px; object-fit: contain;" alt="" />
+                <span>${awayName}</span>
+              </div>
+            </td>
             <td>${statusBadge}</td>
-
             <td><button class="btn btn-sm" onclick="openPredictionModal(${f.id})">Predict</button></td>
-
           `;
-
           tbody.appendChild(tr);
-
         });
 
       } catch (e) {
@@ -3896,6 +3900,61 @@
       return String(str || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
     }
 
+    const COUNTRY_FLAG_MAP = {
+      "afghanistan": "af", "albania": "al", "algeria": "dz", "andorra": "ad", "angola": "ao",
+      "antigua and barbuda": "ag", "argentina": "ar", "armenia": "am", "australia": "au", "austria": "at",
+      "azerbaijan": "az", "bahamas": "bs", "bahrain": "bh", "bangladesh": "bd", "barbados": "bb",
+      "belarus": "by", "belgium": "be", "belize": "bz", "benin": "bj", "bhutan": "bt",
+      "bolivia": "bo", "bosnia and herzegovina": "ba", "bosnia": "ba", "botswana": "bw", "brazil": "br",
+      "brunei": "bn", "bulgaria": "bg", "burkina faso": "bf", "burundi": "bi", "cabo verde": "cv",
+      "cape verde": "cv", "cape verde islands": "cv", "cambodia": "kh", "cameroon": "cm", "canada": "ca",
+      "central african republic": "cf", "chad": "td", "chile": "cl", "china": "cn", "colombia": "co",
+      "comoros": "km", "congo": "cg", "congo dr": "cd", "dr congo": "cd", "democratic republic of the congo": "cd",
+      "costa rica": "cr", "croatia": "hr", "cuba": "cu", "cyprus": "cy", "czech republic": "cz",
+      "czechia": "cz", "denmark": "dk", "djibouti": "dj", "dominica": "dm", "dominican republic": "do",
+      "ecuador": "ec", "egypt": "eg", "el salvador": "sv", "england": "gb-eng", "equatorial guinea": "gq",
+      "eritrea": "er", "estonia": "ee", "eswatini": "sz", "swaziland": "sz", "ethiopia": "et",
+      "faroe islands": "fo", "fiji": "fj", "finland": "fi", "france": "fr", "gabon": "ga",
+      "gambia": "gm", "georgia": "ge", "germany": "de", "ghana": "gh", "gibraltar": "gi",
+      "greece": "gr", "grenada": "gd", "guatemala": "gt", "guinea": "gn", "guinea-bissau": "gw",
+      "guyana": "gy", "haiti": "ht", "honduras": "hn", "hong kong": "hk", "hungary": "hu",
+      "iceland": "is", "india": "in", "indonesia": "id", "iran": "ir", "iraq": "iq",
+      "ireland": "ie", "republic of ireland": "ie", "israel": "il", "italy": "it", "ivory coast": "ci",
+      "cote d'ivoire": "ci", "jamaica": "jm", "japan": "jp", "jordan": "jo", "kazakhstan": "kz",
+      "kenya": "ke", "kiribati": "ki", "kosovo": "xk", "kuwait": "kw", "kyrgyzstan": "kg",
+      "laos": "la", "latvia": "lv", "lebanon": "lb", "lesotho": "ls", "liberia": "lr",
+      "libya": "ly", "liechtenstein": "li", "lithuania": "lt", "luxembourg": "lu", "madagascar": "mg",
+      "malawi": "mw", "malaysia": "my", "maldives": "mv", "mali": "ml", "malta": "mt",
+      "mauritania": "mr", "mauritius": "mu", "mexico": "mx", "moldova": "md", "monaco": "mc",
+      "mongolia": "mn", "montenegro": "me", "morocco": "ma", "mozambique": "mz", "myanmar": "mm",
+      "namibia": "na", "nepal": "np", "netherlands": "nl", "new zealand": "nz", "nicaragua": "ni",
+      "niger": "ne", "nigeria": "ng", "north korea": "kp", "north macedonia": "mk", "fyr macedonia": "mk",
+      "macedonia": "mk", "northern ireland": "gb-nir", "norway": "no", "oman": "om", "pakistan": "pk",
+      "palestine": "ps", "panama": "pa", "papua new guinea": "pg", "paraguay": "py", "peru": "pe",
+      "philippines": "ph", "poland": "pl", "portugal": "pt", "qatar": "qa", "romania": "ro",
+      "russia": "ru", "rwanda": "rw", "saint kitts and nevis": "kn", "saint lucia": "lc",
+      "saint vincent and the grenadines": "vc", "samoa": "ws", "san marino": "sm", "sao tome and principe": "st",
+      "saudi arabia": "sa", "scotland": "gb-sct", "senegal": "sn", "serbia": "rs", "seychelles": "sc",
+      "sierra leone": "sl", "singapore": "sg", "slovakia": "sk", "slovenia": "si", "solomon islands": "sb",
+      "somalia": "so", "south africa": "za", "south korea": "kr", "korea republic": "kr", "korea": "kr",
+      "south sudan": "ss", "spain": "es", "sri lanka": "lk", "sudan": "sd", "suriname": "sr",
+      "sweden": "se", "switzerland": "ch", "syria": "sy", "taiwan": "tw", "chinese taipei": "tw",
+      "tajikistan": "tj", "tanzania": "tz", "thailand": "th", "timor-leste": "tl", "togo": "tg",
+      "tonga": "to", "trinidad and tobago": "tt", "tunisia": "tn", "turkey": "tr", "türkiye": "tr",
+      "turkmenistan": "tm", "tuvalu": "tv", "uganda": "ug", "ukraine": "ua", "united arab emirates": "ae",
+      "uae": "ae", "united kingdom": "gb", "united states": "us", "usa": "us", "uruguay": "uy",
+      "uzbekistan": "uz", "vanuatu": "vu", "vatican city": "va", "venezuela": "ve", "vietnam": "vn",
+      "wales": "gb-wls", "yemen": "ye", "zambia": "zm", "zimbabwe": "zw"
+    };
+
+    function getCountryFlagUrl(name) {
+      if (!name) return null;
+      const clean = String(name).toLowerCase().trim();
+      const code = COUNTRY_FLAG_MAP[clean];
+      if (code) return `https://flagcdn.com/w80/${code}.png`;
+      return null;
+    }
+
     function generateInitialsBadge(teamName) {
       const words = String(teamName || "").trim().split(/\s+/).filter(Boolean);
       let init = "FC";
@@ -3904,27 +3963,46 @@
       else if (words.length >= 3) init = (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
 
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-        <defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#FF6B24"/>
-          <stop offset="100%" stop-color="#4F2810"/>
-        </linearGradient></defs>
-        <rect width="64" height="64" rx="14" fill="url(#bg)" stroke="#FF8749" stroke-width="2"/>
-        <text x="32" y="39" font-family="'Inter', system-ui, sans-serif" font-size="20" font-weight="900" fill="#E8E3D6" text-anchor="middle" letter-spacing="1">${init}</text>
+        <defs>
+          <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0A3630"/>
+            <stop offset="100%" stop-color="#062320"/>
+          </linearGradient>
+        </defs>
+        <path d="M32 4 L56 12 L56 34 C56 48 44 58 32 62 C20 58 8 48 8 34 L8 12 Z" fill="url(#shieldGrad)" stroke="#FF6B24" stroke-width="2.5"/>
+        <path d="M32 9 L51 16 L51 34 C51 45 41 53 32 57 C23 53 13 45 13 34 L13 16 Z" fill="none" stroke="rgba(255, 107, 36, 0.3)" stroke-width="1"/>
+        <circle cx="32" cy="22" r="5" fill="#FF8749" opacity="0.85"/>
+        <text x="32" y="44" font-family="'Inter', system-ui, sans-serif" font-size="13" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="0.5">${init}</text>
       </svg>`;
       return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
     }
 
+    function resolveTeamCrest(teamName, crestUrl, flagUrl) {
+      if (crestUrl && String(crestUrl).trim().length > 5 && !String(crestUrl).includes("initials")) {
+        return crestUrl;
+      }
+      if (flagUrl && String(flagUrl).trim().length > 5) {
+        return flagUrl;
+      }
+      const natFlag = getCountryFlagUrl(teamName);
+      if (natFlag) {
+        return natFlag;
+      }
+      return generateInitialsBadge(teamName);
+    }
+
     function onCrestError(img, flagUrl, teamName) {
-      if (flagUrl && img.src !== flagUrl) {
-        img.src = flagUrl;
+      const natFlag = getCountryFlagUrl(teamName) || flagUrl;
+      if (natFlag && img.src !== natFlag) {
+        img.src = natFlag;
         img.onerror = function() {
           img.src = generateInitialsBadge(teamName);
           img.onerror = null;
         };
-      } else {
-        img.src = generateInitialsBadge(teamName);
-        img.onerror = null;
+        return;
       }
+      img.src = generateInitialsBadge(teamName);
+      img.onerror = null;
     }
 
     function renderMatchRow(f) {
@@ -3934,10 +4012,10 @@
       const awayName = f.away_team_name || "Away Team";
       const homeEsc = safeEscape(homeName);
       const awayEsc = safeEscape(awayName);
-      const homeFlag = f.home_team_flag || "";
-      const awayFlag = f.away_team_flag || "";
-      const homeCrest = f.home_team_crest || f.home_team_logo || homeFlag || generateInitialsBadge(homeName);
-      const awayCrest = f.away_team_crest || f.away_team_logo || awayFlag || generateInitialsBadge(awayName);
+      const homeFlag = f.home_team_flag || getCountryFlagUrl(homeName) || "";
+      const awayFlag = f.away_team_flag || getCountryFlagUrl(awayName) || "";
+      const homeCrest = resolveTeamCrest(homeName, f.home_team_crest || f.home_team_logo, homeFlag);
+      const awayCrest = resolveTeamCrest(awayName, f.away_team_crest || f.away_team_logo, awayFlag);
       const predBadge = f.has_prediction
         ? `<span class="badge-prediction-ready" title="AI Ensemble prediction available">⚡ Ready</span>`
         : `<span style="font-size: 0.7rem; color: var(--text-muted); margin-right: 0.4rem;">Predict</span>`;
@@ -3984,12 +4062,12 @@
       const compName = f.competition_name || "Competition";
       const homeEsc = safeEscape(homeName);
       const awayEsc = safeEscape(awayName);
-      const homeFlag = f.home_team_flag || "";
-      const awayFlag = f.away_team_flag || "";
-      const compFlag = f.competition_flag || "";
+      const homeFlag = f.home_team_flag || getCountryFlagUrl(homeName) || "";
+      const awayFlag = f.away_team_flag || getCountryFlagUrl(awayName) || "";
+      const compFlag = f.competition_flag || getCountryFlagUrl(f.competition_country) || "";
       const compCrest = f.competition_emblem || f.competition_logo || compFlag || SHIELD_FALLBACK;
-      const homeCrest = f.home_team_crest || f.home_team_logo || homeFlag || generateInitialsBadge(homeName);
-      const awayCrest = f.away_team_crest || f.away_team_logo || awayFlag || generateInitialsBadge(awayName);
+      const homeCrest = resolveTeamCrest(homeName, f.home_team_crest || f.home_team_logo, homeFlag);
+      const awayCrest = resolveTeamCrest(awayName, f.away_team_crest || f.away_team_logo, awayFlag);
       const scoreBadgeClass = f.priority_tier === "FEATURED" ? "success" : "info";
 
       return `
@@ -4270,37 +4348,47 @@
         const tr = document.createElement("tr");
 
         const time = formatKickoff(f.utc_date);
-
         const score = f.home_score !== null ? `<strong>${f.home_score} - ${f.away_score}</strong>` : `<span style="color: var(--text-muted);">- : -</span>`;
-
         const statusBadge = f.status === "FINISHED" ? `<span class="badge info">FINISHED</span>` : f.status === "LIVE" ? `<span class="badge danger"><span class="pulsing-live-dot"></span> LIVE</span>` : `<span class="badge success">SCHEDULED</span>`;
 
-
+        const homeName = f.home_team_name || "Home Team";
+        const awayName = f.away_team_name || "Away Team";
+        const homeEsc = safeEscape(homeName);
+        const awayEsc = safeEscape(awayName);
+        const homeFlag = f.home_team_flag || getCountryFlagUrl(homeName) || "";
+        const awayFlag = f.away_team_flag || getCountryFlagUrl(awayName) || "";
+        const homeCrest = resolveTeamCrest(homeName, f.home_team_crest || f.home_team_logo, homeFlag);
+        const awayCrest = resolveTeamCrest(awayName, f.away_team_crest || f.away_team_logo, awayFlag);
+        const compFlag = f.competition_flag || getCountryFlagUrl(f.competition_country) || "";
+        const compCrest = f.competition_emblem || f.competition_logo || compFlag || SHIELD_FALLBACK;
 
         tr.innerHTML = `
-
           <td><code>${f.id}</code></td>
-
           <td><strong>${time.local}</strong><br><small style="color: var(--text-muted);">${time.utc}</small></td>
-
           <td><span class="badge info">${Math.round(f.priority_score || 50)}</span></td>
-
-          <td><strong>${f.competition_name}</strong></td>
-
-          <td>${f.home_team_name}</td>
-
-          <td>${score}</td>
-
-          <td>${f.away_team_name}</td>
-
-          <td>${statusBadge}</td>
-
           <td>
-
-            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">Predict</button>
-
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <img src="${compCrest}" onerror="this.src='${SHIELD_FALLBACK}'; this.onerror=null;" style="width: 16px; height: 16px; object-fit: contain;" alt="" />
+              <strong>${f.competition_name}</strong>
+            </div>
           </td>
-
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <img class="team-crest" src="${homeCrest}" onerror="onCrestError(this, '${homeFlag}', '${homeEsc}')" style="width: 18px; height: 18px; object-fit: contain;" alt="" />
+              <span>${homeName}</span>
+            </div>
+          </td>
+          <td>${score}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <img class="team-crest" src="${awayCrest}" onerror="onCrestError(this, '${awayFlag}', '${awayEsc}')" style="width: 18px; height: 18px; object-fit: contain;" alt="" />
+              <span>${awayName}</span>
+            </div>
+          </td>
+          <td>${statusBadge}</td>
+          <td>
+            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">Predict</button>
+          </td>
         `;
 
         tbody.appendChild(tr);
@@ -4359,16 +4447,31 @@
 
 
         const fix = data.fixture;
-
         const preds = data.predictions;
-
         const ens = preds.ensemble || {};
 
+        const homeName = fix.home_team_name || "Home Team";
+        const awayName = fix.away_team_name || "Away Team";
+        const homeEsc = safeEscape(homeName);
+        const awayEsc = safeEscape(awayName);
+        const homeFlag = fix.home_team_flag || getCountryFlagUrl(homeName) || "";
+        const awayFlag = fix.away_team_flag || getCountryFlagUrl(awayName) || "";
+        const homeCrest = resolveTeamCrest(homeName, fix.home_team_crest || fix.home_team_logo, homeFlag);
+        const awayCrest = resolveTeamCrest(awayName, fix.away_team_crest || fix.away_team_logo, awayFlag);
 
-
-        document.getElementById("modal-match-title").innerText = `${fix.home_team_name} vs ${fix.away_team_name}`;
-
+        document.getElementById("modal-match-title").innerText = `${homeName} vs ${awayName}`;
         document.getElementById("modal-match-meta").innerText = `${fix.competition_name} • ${fix.utc_date}`;
+
+        const homeCrestEl = document.getElementById("modal-home-crest");
+        const awayCrestEl = document.getElementById("modal-away-crest");
+        if (homeCrestEl && awayCrestEl) {
+          homeCrestEl.src = homeCrest;
+          homeCrestEl.style.display = "block";
+          homeCrestEl.onerror = () => onCrestError(homeCrestEl, homeFlag, homeEsc);
+          awayCrestEl.src = awayCrest;
+          awayCrestEl.style.display = "block";
+          awayCrestEl.onerror = () => onCrestError(awayCrestEl, awayFlag, awayEsc);
+        }
 
 
 
@@ -4823,11 +4926,12 @@
 
 
     function closeModal() {
-
       document.getElementById("prediction-modal").classList.remove("active");
-
       activeFixtureId = null;
-
+      const hEl = document.getElementById("modal-home-crest");
+      const aEl = document.getElementById("modal-away-crest");
+      if (hEl) hEl.style.display = "none";
+      if (aEl) aEl.style.display = "none";
     }
 
 
@@ -5341,9 +5445,12 @@
           const homeEsc = safeEscape(homeName);
           const awayEsc = safeEscape(awayName);
 
-          const homeCrest = home.crest_url || generateInitialsBadge(homeName);
-          const awayCrest = away.crest_url || generateInitialsBadge(awayName);
-          const compEmblem = comp.emblem_url || SHIELD_FALLBACK;
+          const homeFlag = home.flag_url || getCountryFlagUrl(homeName) || "";
+          const awayFlag = away.flag_url || getCountryFlagUrl(awayName) || "";
+          const homeCrest = resolveTeamCrest(homeName, home.crest_url, homeFlag);
+          const awayCrest = resolveTeamCrest(awayName, away.crest_url, awayFlag);
+          const compFlag = comp.flag_url || getCountryFlagUrl(comp.country) || "";
+          const compEmblem = comp.emblem_url || compFlag || SHIELD_FALLBACK;
 
           const isHomeWinner = score.winner === "HOME_TEAM";
           const isAwayWinner = score.winner === "AWAY_TEAM";
@@ -5430,7 +5537,7 @@
                     <div style="font-size: 0.72rem; color: ${isHomeWinner ? '#34d399' : 'var(--text-muted)'}; font-weight: 600;">${isHomeWinner ? '👑 Winner' : 'Home'}</div>
                   </div>
                   <div class="team-crest-wrapper" style="width: 44px; height: 44px; min-width: 44px;">
-                    <img class="team-crest" src="${homeCrest}" onerror="onCrestError(this, '', '${homeEsc}')" alt="${homeName}" style="width: 40px; height: 40px; object-fit: contain;" />
+                    <img class="team-crest" src="${homeCrest}" onerror="onCrestError(this, '${homeFlag}', '${homeEsc}')" alt="${homeName}" style="width: 40px; height: 40px; object-fit: contain;" />
                   </div>
                 </div>
 
@@ -5447,7 +5554,7 @@
                 <!-- Away Team -->
                 <div style="display: flex; align-items: center; justify-content: flex-start; gap: 0.85rem; text-align: left;">
                   <div class="team-crest-wrapper" style="width: 44px; height: 44px; min-width: 44px;">
-                    <img class="team-crest" src="${awayCrest}" onerror="onCrestError(this, '', '${awayEsc}')" alt="${awayName}" style="width: 40px; height: 40px; object-fit: contain;" />
+                    <img class="team-crest" src="${awayCrest}" onerror="onCrestError(this, '${awayFlag}', '${awayEsc}')" alt="${awayName}" style="width: 40px; height: 40px; object-fit: contain;" />
                   </div>
                   <div style="overflow: hidden;">
                     <div style="font-weight: 800; font-size: 1.05rem; color: ${isAwayWinner ? '#fff' : '#E8E3D6'};">${awayName}</div>
