@@ -571,36 +571,96 @@
     /* Palette: #071426 (Navy) | #0D1E36 (Slate) | #087BFF (Blue) */
     /*          #00D9FF (Cyan) | #B8F5FF (Ice)   | #FFFFFF (White) */
     /* ========================================================= */
+    #prediction-modal {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(3, 10, 22, 0.86);
+      transition: all 0.25s ease;
+    }
+
     #prediction-modal .modal-content {
       background: #071426 !important;
-      border: 1px solid rgba(0, 217, 255, 0.28) !important;
-      border-radius: 18px !important;
+      border: 1px solid rgba(0, 217, 255, 0.32) !important;
+      border-radius: 20px !important;
       max-width: 960px !important;
       max-height: 90vh !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.85), 0 0 35px rgba(8, 123, 255, 0.25), inset 0 1px 0 rgba(184, 245, 255, 0.2) !important;
+      box-shadow: 0 0 60px rgba(0, 217, 255, 0.16), 0 30px 90px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(184, 245, 255, 0.25) !important;
       color: #FFFFFF !important;
       padding: 0 !important;
       display: flex;
       flex-direction: column;
+      animation: modalEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* 1. Hero Banner */
-    .matchday-hero-banner {
-      background: radial-gradient(circle at 50% 15%, rgba(0, 217, 255, 0.16) 0%, transparent 65%),
-                  linear-gradient(180deg, rgba(8, 123, 255, 0.25) 0%, rgba(7, 20, 38, 0.98) 100%);
-      padding: 1.5rem 1.75rem 1.25rem;
-      border-bottom: 1px solid rgba(0, 217, 255, 0.2);
-      border-top-left-radius: 18px;
-      border-top-right-radius: 18px;
-      position: relative;
+    @keyframes modalEntrance {
+      0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(14px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
     }
+
+    /* Tabular numeric alignment */
+    .tabular-nums,
+    .matchday-countdown-strip,
+    .h2h-stat-num,
+    .stat-num-home,
+    .stat-num-away,
+    .prob-labels,
+    .verdict-pick-title,
+    .verdict-chips,
+    .m-pick,
+    .verdict-chip {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+
+    /* 1. Hero Banner with Stadium Floodlight Ambience */
+    .matchday-hero-banner {
+      flex-shrink: 0;
+      background:
+        radial-gradient(ellipse 90% 60% at 50% -20%, rgba(0, 217, 255, 0.28) 0%, rgba(8, 123, 255, 0.16) 45%, transparent 75%),
+        linear-gradient(180deg, rgba(8, 123, 255, 0.24) 0%, rgba(7, 20, 38, 0.98) 100%);
+      padding: 1.5rem 1.75rem 1.25rem;
+      border-bottom: 1px solid rgba(0, 217, 255, 0.22);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .matchday-hero-banner::before {
+      content: "";
+      position: absolute;
+      top: -40px;
+      left: -40px;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(8, 123, 255, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .matchday-hero-banner::after {
+      content: "";
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(0, 217, 255, 0.22) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
     .matchday-hero-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.25rem;
+      position: relative;
+      z-index: 2;
     }
     .hero-comp-badge {
       background: rgba(8, 123, 255, 0.22);
@@ -609,10 +669,13 @@
       font-weight: 800;
       letter-spacing: 1.2px;
       font-size: 0.78rem;
-      padding: 0.35rem 0.85rem;
+      padding: 0.35rem 0.95rem;
       border-radius: 20px;
       text-transform: uppercase;
-      box-shadow: 0 0 12px rgba(0, 217, 255, 0.2);
+      box-shadow: 0 0 14px rgba(0, 217, 255, 0.22);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .matchday-hero-teams {
       display: grid;
@@ -620,6 +683,8 @@
       align-items: center;
       gap: 1.25rem;
       margin-bottom: 1.25rem;
+      position: relative;
+      z-index: 2;
     }
     .hero-team {
       display: flex;
@@ -640,10 +705,14 @@
       min-width: 58px;
       object-fit: contain;
       filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.7));
-      background: rgba(13, 30, 54, 0.7);
-      border: 1px solid rgba(0, 217, 255, 0.25);
+      background: rgba(13, 30, 54, 0.75);
+      border: 1px solid rgba(0, 217, 255, 0.28);
       border-radius: 50%;
       padding: 6px;
+      transition: transform 0.25s ease;
+    }
+    .hero-team-crest:hover {
+      transform: scale(1.08);
     }
     .hero-team-name {
       font-size: 1.35rem;
@@ -659,7 +728,7 @@
       border-radius: 50%;
       background: #0D1E36;
       border: 2px solid #00D9FF;
-      box-shadow: 0 0 18px rgba(0, 217, 255, 0.45);
+      box-shadow: 0 0 20px rgba(0, 217, 255, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -668,18 +737,25 @@
       color: #00D9FF;
       letter-spacing: 1px;
       flex-shrink: 0;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .hero-vs-badge:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 0 26px rgba(0, 217, 255, 0.7);
     }
     .matchday-meta-strip {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
-      background: rgba(13, 30, 54, 0.8);
-      border: 1px solid rgba(0, 217, 255, 0.18);
+      background: rgba(13, 30, 54, 0.82);
+      border: 1px solid rgba(0, 217, 255, 0.2);
       border-radius: 10px;
       padding: 0.65rem 1rem;
       font-size: 0.82rem;
       color: #B8F5FF;
       text-align: center;
+      position: relative;
+      z-index: 2;
     }
     .meta-item {
       display: flex;
@@ -706,10 +782,13 @@
       letter-spacing: 1.2px;
       font-weight: 700;
       box-shadow: inset 0 0 12px rgba(0, 217, 255, 0.15);
+      position: relative;
+      z-index: 2;
     }
 
-    /* 2. Modal Body */
+    /* 2. Modal Body with Broadcast Stagger */
     .matchday-modal-body {
+      flex-shrink: 0;
       padding: 1.5rem 1.75rem;
       display: flex;
       flex-direction: column;
@@ -717,16 +796,28 @@
       background: #071426;
     }
 
+    @keyframes broadcastFadeSlide {
+      0% {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     /* Verdict Card */
     .matchday-verdict-card {
       background: linear-gradient(135deg, rgba(8, 123, 255, 0.18) 0%, rgba(13, 30, 54, 0.95) 100%);
       border: 2px solid #00D9FF;
-      box-shadow: 0 0 24px rgba(0, 217, 255, 0.28), inset 0 1px 0 rgba(184, 245, 255, 0.25);
+      box-shadow: 0 0 26px rgba(0, 217, 255, 0.28), inset 0 1px 0 rgba(184, 245, 255, 0.25);
       border-radius: 14px;
       padding: 1.25rem 1.5rem;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      animation: broadcastFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
     }
     .verdict-header {
       display: flex;
@@ -776,6 +867,10 @@
       font-size: 0.8rem;
       color: #B8F5FF;
       font-weight: 700;
+      transition: all 0.2s ease;
+    }
+    .verdict-chip:hover {
+      border-color: #00D9FF;
     }
     .verdict-chip.value-edge {
       background: rgba(16, 185, 129, 0.18);
@@ -798,6 +893,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1rem;
+      animation: broadcastFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
     }
     .context-card {
       background: #0D1E36;
@@ -807,6 +903,11 @@
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      transition: all 0.25s ease;
+    }
+    .context-card:hover {
+      border-color: rgba(0, 217, 255, 0.45);
+      box-shadow: 0 6px 20px rgba(8, 123, 255, 0.15);
     }
     .context-card-title {
       font-size: 0.8rem;
@@ -849,6 +950,10 @@
       font-size: 0.72rem;
       font-weight: 800;
       color: #FFFFFF;
+      transition: transform 0.2s ease;
+    }
+    .form-pill:hover {
+      transform: scale(1.15);
     }
     .form-pill.w { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
     .form-pill.d { background: #64748b; }
@@ -867,6 +972,10 @@
       border: 1px solid rgba(8, 123, 255, 0.2);
       border-radius: 8px;
       padding: 0.6rem 0.35rem;
+      transition: border-color 0.2s ease;
+    }
+    .h2h-stat-box:hover {
+      border-color: rgba(0, 217, 255, 0.4);
     }
     .h2h-stat-num {
       font-size: 1.4rem;
@@ -886,6 +995,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
       gap: 0.85rem;
+      animation: broadcastFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
     }
     .matchday-market-card {
       background: #0D1E36;
@@ -895,15 +1005,25 @@
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
-      transition: all 0.2s ease;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .matchday-market-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(0, 217, 255, 0.55);
+      box-shadow: 0 8px 24px rgba(0, 217, 255, 0.15);
     }
     .matchday-market-card.highlight {
       border: 1px solid #00D9FF;
-      box-shadow: 0 0 14px rgba(0, 217, 255, 0.25);
+      box-shadow: 0 0 16px rgba(0, 217, 255, 0.28);
     }
     .matchday-market-card.trap-warning {
       border: 1px solid rgba(245, 158, 11, 0.5);
       background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, #0D1E36 100%);
+    }
+
+    .prob-bar-segment {
+      height: 100%;
+      transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* 5. Stats Comparison Card */
@@ -915,12 +1035,26 @@
       display: flex;
       flex-direction: column;
       gap: 1rem;
+      animation: broadcastFadeSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both;
+      transition: all 0.25s ease;
+    }
+    .matchday-stats-card:hover {
+      border-color: rgba(0, 217, 255, 0.4);
     }
     .stat-comparison-row {
       display: grid;
       grid-template-columns: 55px 1fr 140px 1fr 55px;
       align-items: center;
       gap: 0.65rem;
+      transition: background 0.15s ease;
+      padding: 0.2rem 0.3rem;
+      border-radius: 6px;
+    }
+    .stat-comparison-row:hover {
+      background: rgba(7, 20, 38, 0.4);
+    }
+    .stat-comparison-row:hover .stat-metric-label {
+      color: #00D9FF;
     }
     .stat-num-home {
       font-size: 0.92rem;
@@ -941,6 +1075,7 @@
       color: #B8F5FF;
       text-transform: uppercase;
       letter-spacing: 0.6px;
+      transition: color 0.15s ease;
     }
     .stat-bar-track {
       height: 8px;
@@ -954,18 +1089,19 @@
       height: 100%;
       background: linear-gradient(90deg, #0056b3, #087BFF);
       border-radius: 4px;
-      transition: width 0.4s ease;
+      transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
       margin-left: auto;
     }
     .stat-bar-away {
       height: 100%;
       background: linear-gradient(90deg, #087BFF, #00D9FF);
       border-radius: 4px;
-      transition: width 0.4s ease;
+      transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* 6. Sticky Modal Footer */
     .matchday-sticky-footer {
+      flex-shrink: 0;
       position: sticky;
       bottom: 0;
       background: rgba(7, 20, 38, 0.96);
@@ -978,11 +1114,25 @@
       align-items: center;
       gap: 0.75rem;
       flex-wrap: wrap;
-      border-bottom-left-radius: 18px;
-      border-bottom-right-radius: 18px;
+      border-bottom-left-radius: 20px;
+      border-bottom-right-radius: 20px;
       z-index: 10;
     }
+    .matchday-sticky-footer .btn {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .matchday-sticky-footer .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.15);
+    }
+    .matchday-sticky-footer .btn:active {
+      transform: translateY(0);
+    }
+
     @media (max-width: 650px) {
+      .matchday-hero-banner {
+        padding: 1.15rem 1rem 1rem;
+      }
       .matchday-hero-teams {
         grid-template-columns: 1fr;
         gap: 0.75rem;
@@ -992,6 +1142,11 @@
         justify-content: center;
         text-align: center;
       }
+      .matchday-meta-strip {
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+        font-size: 0.76rem;
+      }
       .stat-comparison-row {
         grid-template-columns: 45px 1fr 100px 1fr 45px;
         gap: 0.35rem;
@@ -999,8 +1154,28 @@
       .stat-metric-label {
         font-size: 0.65rem;
       }
+      .matchday-sticky-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      #prediction-modal .modal-content,
+      .matchday-verdict-card,
+      .matchday-context-grid,
+      .matchday-markets-grid,
+      .matchday-stats-card,
+      .prob-bar-segment,
+      .stat-bar-home,
+      .stat-bar-away,
+      .matchday-market-card,
+      .context-card,
+      .form-pill {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
 
     /* ========================================================= */
     /* BESOCCER MATCH DISCOVERY & DATE NAVIGATION               */
@@ -5266,6 +5441,8 @@
       if (aiBox) aiBox.style.display = "none";
 
       document.getElementById("prediction-modal").classList.add("active");
+      const modalContent = document.querySelector("#prediction-modal .modal-content");
+      if (modalContent) modalContent.scrollTop = 0;
       loadTelegramRecipients();
 
       // Placeholder states
@@ -5795,7 +5972,29 @@
         `⚡ Powered by ZolaPredict`
       ].join("\n");
 
-      navigator.clipboard.writeText(summary).then(() => {
+      function doClipboardCopy(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise((resolve, reject) => {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            resolve();
+          } catch (e) {
+            document.body.removeChild(ta);
+            reject(e);
+          }
+        });
+      }
+
+      doClipboardCopy(summary).then(() => {
         const btn = document.getElementById("btn-copy-prediction-summary");
         if (btn) {
           const orig = btn.innerText;
