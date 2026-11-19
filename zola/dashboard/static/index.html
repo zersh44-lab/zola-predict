@@ -21,47 +21,54 @@
     /* ========================================================= */
     :root {
       /* Primary Surfaces */
-      --bg: #013634;
-      --bg-secondary: #062320;
-      --card-bg: rgba(26, 65, 58, 0.68);
-      --card-bg-solid: #1A413A;
-      --card-sub: rgba(6, 35, 32, 0.78);
-      --card-sub-solid: #062320;
+      --bg: #071426;
+      --bg-secondary: #0D1E36;
+      --card-bg: rgba(13, 30, 54, 0.78);
+      --card-bg-solid: #0D1E36;
+      --card-sub: rgba(7, 20, 38, 0.82);
+      --card-sub-solid: #071426;
+      --card-header-bg: rgba(13, 30, 54, 0.88);
 
       /* Primary Accents */
-      --primary-accent: #FF6B24;
-      --accent: #FF6B24;
-      --accent-hover: #FF8749;
-      --coffee-brown: #4F2810;
+      --primary-accent: #087BFF;
+      --accent: #087BFF;
+      --accent-hover: #00D9FF;
+      --accent-glow: rgba(0, 217, 255, 0.35);
+      --accent-cyan: #00D9FF;
+      --accent-blue: #087BFF;
+      --coffee-brown: #0D1E36;
 
       /* Typography */
-      --text: #E8E3D6;
-      --text-muted: #B8C6BD;
-      --text-dim: rgba(184, 198, 189, 0.6);
+      --text: #FFFFFF;
+      --text-muted: #B8F5FF;
+      --text-dim: rgba(184, 245, 255, 0.55);
 
       /* Borders & Glass Outlines */
-      --border: #28534A;
-      --border-glass: rgba(232, 227, 214, 0.14);
-      --border-focus: #FF6B24;
-      --border-inner-light: rgba(232, 227, 214, 0.08);
+      --border: rgba(8, 123, 255, 0.22);
+      --border-glass: rgba(0, 217, 255, 0.14);
+      --border-focus: #00D9FF;
+      --border-highlight: rgba(0, 217, 255, 0.35);
+      --border-inner-light: rgba(0, 217, 255, 0.08);
 
       /* Status Accents */
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --info: #FF8749;
+      --info: #00D9FF;
 
       /* Glassmorphism Specs */
-      --glass-surface: rgba(10, 54, 48, 0.65);
-      --glass-surface-elevated: rgba(26, 65, 58, 0.82);
+      --glass-surface: rgba(13, 30, 54, 0.75);
+      --glass-surface-elevated: rgba(13, 30, 54, 0.90);
       --glass-blur: blur(16px);
-      --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(232, 227, 214, 0.12);
-      --glass-shadow-hover: 0 12px 36px rgba(0, 0, 0, 0.38), 0 0 24px rgba(255, 107, 36, 0.22), inset 0 1px 0 rgba(232, 227, 214, 0.22);
+      --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(0, 217, 255, 0.12);
+      --glass-shadow-hover: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 24px rgba(0, 217, 255, 0.25), inset 0 1px 0 rgba(0, 217, 255, 0.22);
 
       /* Glow Effects */
-      --orange-glow: 0 0 12px rgba(255, 107, 36, 0.25), 0 0 28px rgba(255, 107, 36, 0.12);
-      --orange-glow-lg: 0 0 20px rgba(255, 107, 36, 0.45), 0 0 38px rgba(255, 107, 36, 0.22);
-      --teal-glow: 0 0 16px rgba(40, 83, 74, 0.45), 0 0 32px rgba(20, 110, 95, 0.25);
+      --orange-glow: 0 0 12px rgba(0, 217, 255, 0.25), 0 0 28px rgba(8, 123, 255, 0.18);
+      --orange-glow-lg: 0 0 20px rgba(0, 217, 255, 0.45), 0 0 38px rgba(8, 123, 255, 0.28);
+      --teal-glow: 0 0 16px rgba(8, 123, 255, 0.45), 0 0 32px rgba(0, 217, 255, 0.25);
+      --cyan-glow: 0 0 12px rgba(0, 217, 255, 0.35), 0 0 28px rgba(8, 123, 255, 0.2);
+      --cyan-glow-lg: 0 0 20px rgba(0, 217, 255, 0.55), 0 0 38px rgba(8, 123, 255, 0.3);
 
       /* Typography Hierarchy */
       --font-heading: 'Playfair Display', Georgia, serif;
@@ -74,10 +81,10 @@
       font-family: var(--font-body);
       background-color: var(--bg);
       background-image:
-        radial-gradient(circle at 80% 20%, rgba(255, 107, 36, 0.10), transparent 35%),
-        radial-gradient(circle at 15% 80%, rgba(20, 110, 95, 0.22), transparent 40%),
-        radial-gradient(circle at 50% 50%, rgba(79, 40, 16, 0.14), transparent 50%),
-        linear-gradient(180deg, #013634 0%, #062320 100%);
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(8, 123, 255, 0.22) 0%, rgba(7, 20, 38, 0.92) 70%, #071426 100%),
+        radial-gradient(circle at 85% 85%, rgba(13, 30, 54, 0.8), transparent 50%),
+        radial-gradient(circle at 15% 15%, rgba(0, 217, 255, 0.08), transparent 45%),
+        linear-gradient(180deg, #071426 0%, #040B14 100%);
       background-attachment: fixed;
       color: var(--text);
       line-height: 1.5;
@@ -99,7 +106,7 @@
     /* 4. NAVIGATION DESIGN (Frosted Glass Navbar)               */
     /* ========================================================= */
     header {
-      background: rgba(6, 35, 32, 0.75);
+      background: rgba(13, 30, 54, 0.78);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-glass);
@@ -125,15 +132,15 @@
       height: 44px;
       border-radius: 50%;
       object-fit: contain;
-      filter: drop-shadow(0 0 10px rgba(255, 107, 36, 0.45));
+      filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.45));
       transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), filter 0.25s ease;
-      background: rgba(6, 35, 32, 0.85);
-      border: 1px solid rgba(255, 107, 36, 0.4);
+      background: rgba(13, 30, 54, 0.85);
+      border: 1px solid rgba(0, 217, 255, 0.35);
       padding: 2px;
     }
     .brand-emblem-img:hover {
       transform: scale(1.08) rotate(3deg);
-      filter: drop-shadow(0 0 18px rgba(255, 107, 36, 0.8));
+      filter: drop-shadow(0 0 18px rgba(0, 217, 255, 0.8));
     }
     .brand-text-wrap {
       display: flex;
@@ -145,7 +152,7 @@
       font-size: 1.4rem;
       font-weight: 800;
       letter-spacing: 0.03em;
-      background: linear-gradient(135deg, #E8E3D6 30%, #FF8749 100%);
+      background: linear-gradient(135deg, #FFFFFF 25%, #00D9FF 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       display: flex;
@@ -183,14 +190,14 @@
       padding: 0.25rem 0.65rem;
       border-radius: 9999px;
       border: 1px solid var(--border-glass);
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       color: var(--text);
     }
     .badge.success { border-color: rgba(16, 185, 129, 0.4); color: #34d399; }
     .badge.warning { border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
-    .badge.info { border-color: rgba(255, 107, 36, 0.4); color: #FF8749; }
+    .badge.info { border-color: rgba(0, 217, 255, 0.4); color: #00D9FF; background: rgba(0, 217, 255, 0.08); }
     .badge.danger { border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
     .dot {
       width: 7px;
@@ -202,7 +209,7 @@
 
     /* Floating Glass Tabs Bar */
     nav {
-      background: rgba(6, 35, 32, 0.65);
+      background: rgba(13, 30, 54, 0.75);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-glass);
@@ -234,15 +241,15 @@
       flex-shrink: 0;
     }
     nav button:hover {
-      color: var(--text);
-      background: rgba(26, 65, 58, 0.35);
+      color: #FFFFFF;
+      background: rgba(8, 123, 255, 0.14);
     }
     nav button.active {
-      color: #ffffff;
-      border-bottom-color: var(--primary-accent);
-      background: rgba(26, 65, 58, 0.55);
-      text-shadow: 0 0 10px rgba(255, 107, 36, 0.5);
-      box-shadow: inset 0 -2px 0 var(--primary-accent), 0 4px 12px rgba(255, 107, 36, 0.15);
+      color: #00D9FF;
+      border-bottom-color: #00D9FF;
+      background: rgba(8, 123, 255, 0.22);
+      text-shadow: 0 0 12px rgba(0, 217, 255, 0.55);
+      box-shadow: inset 0 -2px 0 #00D9FF, 0 4px 14px rgba(0, 217, 255, 0.25);
     }
 
     /* ========================================================= */
@@ -340,8 +347,9 @@
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      background: linear-gradient(135deg, #FF6B24 0%, #FF8749 100%);
-      color: #062320;
+      background: linear-gradient(135deg, #087BFF 0%, #00D9FF 100%);
+      color: #071426;
+      font-weight: 800;
       border: none;
       font-family: var(--font-body);
       font-weight: 700;
@@ -353,7 +361,7 @@
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .btn:hover, .btn-primary:hover {
-      background: linear-gradient(135deg, #FF8749 0%, #FFA06E 100%);
+      background: linear-gradient(135deg, #00D9FF 0%, #087BFF 100%);
       color: #000000;
       transform: translateY(-2px);
       box-shadow: var(--orange-glow-lg);
@@ -362,11 +370,11 @@
       transform: translateY(0) scale(0.98);
     }
     .btn-secondary {
-      background: rgba(26, 65, 58, 0.65);
+      background: rgba(13, 30, 54, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      color: var(--text);
-      border: 1px solid var(--border-glass);
+      color: #FFFFFF;
+      border: 1px solid rgba(0, 217, 255, 0.22);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(232, 227, 214, 0.08);
       font-weight: 600;
       font-size: 0.85rem;
@@ -377,14 +385,14 @@
     }
     .btn-secondary:hover {
       background: rgba(40, 83, 74, 0.85);
-      border-color: rgba(255, 107, 36, 0.45);
+      border-color: rgba(0, 217, 255, 0.45);
       color: #ffffff;
-      box-shadow: 0 0 16px rgba(255, 107, 36, 0.2);
+      box-shadow: 0 0 16px rgba(0, 217, 255, 0.2);
       transform: translateY(-1px);
     }
     .btn-success {
       background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: #062320;
+      color: #071426;
       font-weight: 700;
       box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
       padding: 0.52rem 1.15rem;
@@ -404,7 +412,7 @@
     /* FORM CONTROLS & GLASS INPUTS                              */
     /* ========================================================= */
     select, input[type="text"], input[type="date"] {
-      background: rgba(6, 35, 32, 0.8);
+      background: rgba(13, 30, 54, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--border);
@@ -419,7 +427,7 @@
     }
     select:focus, input[type="text"]:focus, input[type="date"]:focus {
       border-color: var(--primary-accent);
-      box-shadow: 0 0 0 2px rgba(255, 107, 36, 0.25), inset 0 1px 3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.25), inset 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
     /* ========================================================= */
@@ -429,7 +437,7 @@
       overflow-x: auto;
       border: 1px solid var(--border-glass);
       border-radius: 10px;
-      background: rgba(6, 35, 32, 0.5);
+      background: rgba(13, 30, 54, 0.60);
       backdrop-filter: blur(10px);
       box-shadow: var(--glass-shadow);
     }
@@ -440,7 +448,7 @@
       font-size: 0.88rem;
     }
     th {
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       padding: 0.8rem 1rem;
       color: var(--text-muted);
       font-size: 0.76rem;
@@ -455,7 +463,7 @@
       color: var(--text);
     }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background-color: rgba(26, 65, 58, 0.35); }
+    tr:hover td { background-color: rgba(8, 123, 255, 0.08); }
 
     /* ========================================================= */
     /* MODAL WINDOWS & PREDICTION DRAWER                         */
@@ -475,16 +483,16 @@
     }
     .modal-overlay.active { display: flex; }
     .modal-content {
-      background: linear-gradient(165deg, rgba(26, 65, 58, 0.95), rgba(6, 35, 32, 0.98));
+      background: linear-gradient(165deg, rgba(13, 30, 54, 0.98), rgba(7, 20, 38, 0.99));
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(232, 227, 214, 0.18);
+      border: 1px solid rgba(0, 217, 255, 0.25);
       border-radius: 16px;
       width: 100%;
       max-width: 950px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 32px rgba(255, 107, 36, 0.15), inset 0 1px 0 rgba(232, 227, 214, 0.22);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 32px rgba(0, 217, 255, 0.15), inset 0 1px 0 rgba(232, 227, 214, 0.22);
       display: flex;
       flex-direction: column;
       animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -495,7 +503,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       border-top-left-radius: 16px;
       border-top-right-radius: 16px;
     }
@@ -508,7 +516,7 @@
 
     /* Market Progress Bar */
     .market-card {
-      background: rgba(6, 35, 32, 0.7);
+      background: rgba(13, 30, 54, 0.78);
       border: 1px solid var(--border-glass);
       border-radius: 12px;
       padding: 1.1rem 1.35rem;
@@ -525,18 +533,18 @@
     .market-name { font-weight: 700; font-size: 0.95rem; color: var(--text); }
     .market-pick {
       font-weight: 800;
-      color: #FF8749;
-      background: rgba(255, 107, 36, 0.14);
-      border: 1px solid rgba(255, 107, 36, 0.35);
+      color: #00D9FF;
+      background: rgba(0, 217, 255, 0.14);
+      border: 1px solid rgba(0, 217, 255, 0.35);
       padding: 0.2rem 0.65rem;
       border-radius: 6px;
       font-size: 0.85rem;
-      box-shadow: 0 0 10px rgba(255, 107, 36, 0.18);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.18);
     }
     .prob-bar-container {
       width: 100%;
       height: 10px;
-      background: rgba(6, 35, 32, 0.9);
+      background: rgba(13, 30, 54, 0.90);
       border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
@@ -556,9 +564,9 @@
 
     /* Alerts */
     .alert-box {
-      background: rgba(255, 107, 36, 0.1);
-      border: 1px solid rgba(255, 107, 36, 0.3);
-      color: #FFA06E;
+      background: rgba(0, 217, 255, 0.1);
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      color: #00D9FF;
       border-radius: 10px;
       padding: 0.85rem 1.1rem;
       font-size: 0.84rem;
@@ -1184,7 +1192,7 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      background: rgba(6, 35, 32, 0.75);
+      background: rgba(13, 30, 54, 0.78);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border-glass);
@@ -1194,9 +1202,9 @@
       box-shadow: var(--glass-shadow);
     }
     .date-nav-btn {
-      background: rgba(26, 65, 58, 0.65);
-      border: 1px solid var(--border-glass);
-      color: var(--text);
+      background: rgba(13, 30, 54, 0.85);
+      border: 1px solid rgba(0, 217, 255, 0.18);
+      color: #B8F5FF;
       width: 38px;
       height: 48px;
       border-radius: 8px;
@@ -1211,7 +1219,7 @@
     .date-nav-btn:hover {
       border-color: var(--primary-accent);
       color: var(--primary-accent);
-      background: rgba(255, 107, 36, 0.12);
+      background: rgba(0, 217, 255, 0.12);
       box-shadow: var(--orange-glow);
     }
     .date-ribbon {
@@ -1227,8 +1235,8 @@
       min-width: 86px;
       padding: 0.45rem 0.65rem;
       border-radius: 10px;
-      background: rgba(26, 65, 58, 0.5);
-      border: 1px solid var(--border-glass);
+      background: rgba(13, 30, 54, 0.65);
+      border: 1px solid rgba(0, 217, 255, 0.12);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1238,11 +1246,11 @@
       user-select: none;
     }
     .date-pill:hover {
-      border-color: rgba(255, 107, 36, 0.45);
+      border-color: rgba(0, 217, 255, 0.45);
       background: rgba(40, 83, 74, 0.7);
     }
     .date-pill.active {
-      background: linear-gradient(135deg, rgba(255, 107, 36, 0.25) 0%, rgba(79, 40, 16, 0.4) 100%);
+      background: linear-gradient(135deg, rgba(0, 217, 255, 0.25) 0%, rgba(8, 123, 255, 0.4) 100%);
       border-color: var(--primary-accent);
       box-shadow: var(--orange-glow);
     }
@@ -1254,7 +1262,7 @@
       letter-spacing: 0.05em;
     }
     .date-pill.active .day-title {
-      color: #FF8749;
+      color: #00D9FF;
     }
     .date-pill .day-num {
       font-size: 1.05rem;
@@ -1270,7 +1278,7 @@
       padding-left: 0.8rem;
     }
     .date-picker-input {
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 0.42rem 0.65rem;
@@ -1302,7 +1310,7 @@
     .discovery-tz-badge {
       font-size: 0.75rem;
       color: var(--text-muted);
-      background: rgba(6, 35, 32, 0.75);
+      background: rgba(13, 30, 54, 0.78);
       padding: 0.3rem 0.7rem;
       border-radius: 8px;
       border: 1px solid var(--border-glass);
@@ -1320,7 +1328,7 @@
     }
     .category-nav-bar::-webkit-scrollbar { display: none; }
     .category-pill {
-      background: rgba(6, 35, 32, 0.75);
+      background: rgba(13, 30, 54, 0.78);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border: 1px solid var(--border-glass);
@@ -1339,15 +1347,15 @@
     }
     .category-pill:hover {
       color: #ffffff;
-      border-color: rgba(255, 107, 36, 0.35);
-      background: rgba(26, 65, 58, 0.65);
+      border-color: rgba(0, 217, 255, 0.4);
+      background: rgba(8, 123, 255, 0.18);
     }
     .category-pill.active {
-      background: linear-gradient(135deg, #FF6B24 0%, #FF8749 100%);
-      color: #062320;
-      border-color: #FF8749;
+      background: linear-gradient(135deg, #087BFF 0%, #00D9FF 100%);
+      color: #071426;
+      border-color: #00D9FF;
       font-weight: 800;
-      box-shadow: var(--orange-glow);
+      box-shadow: 0 0 16px rgba(0, 217, 255, 0.45);
     }
     .category-pill.active-live {
       background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
@@ -1363,8 +1371,8 @@
       font-weight: 800;
     }
     .category-pill.active .category-count {
-      background: rgba(6, 35, 32, 0.85);
-      color: #E8E3D6;
+      background: rgba(13, 30, 54, 0.88);
+      color: #FFFFFF;
     }
 
     /* Search & Filter Toolbar */
@@ -1374,7 +1382,7 @@
       align-items: center;
       gap: 0.75rem;
       flex-wrap: wrap;
-      background: rgba(6, 35, 32, 0.75);
+      background: rgba(13, 30, 54, 0.78);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border-glass);
@@ -1412,7 +1420,7 @@
       margin-bottom: 2rem;
     }
     .featured-card {
-      background: linear-gradient(145deg, rgba(26, 65, 58, 0.85), rgba(6, 35, 32, 0.9));
+      background: linear-gradient(180deg, #0D1E36 0%, #081628 100%);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border-glass);
@@ -1431,18 +1439,18 @@
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, #FF6B24, #10b981);
+      background: linear-gradient(90deg, #087BFF, #00D9FF);
       opacity: 0.85;
       transition: opacity 0.3s ease;
     }
     .featured-card:hover {
-      border-color: rgba(255, 107, 36, 0.55);
+      border-color: rgba(0, 217, 255, 0.45);
       transform: translateY(-3px);
       box-shadow: var(--glass-shadow-hover);
     }
     .featured-card:hover::before {
       opacity: 1;
-      box-shadow: 0 0 10px rgba(255, 107, 36, 0.8);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.8);
     }
     .featured-card-header {
       display: flex;
@@ -1483,12 +1491,12 @@
     .featured-time-badge {
       font-size: 1.15rem;
       font-weight: 900;
-      color: #FF8749;
-      background: rgba(255, 107, 36, 0.12);
-      border: 1px solid rgba(255, 107, 36, 0.25);
+      color: #00D9FF;
+      background: rgba(0, 217, 255, 0.12);
+      border: 1px solid rgba(0, 217, 255, 0.25);
       padding: 0.2rem 0.65rem;
       border-radius: 6px;
-      box-shadow: 0 0 10px rgba(255, 107, 36, 0.15);
+      box-shadow: 0 0 10px rgba(0, 217, 255, 0.15);
     }
     .featured-card-footer {
       display: flex;
@@ -1518,14 +1526,14 @@
       justify-content: space-between;
       align-items: center;
       padding: 0.8rem 1.25rem;
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       cursor: pointer;
       user-select: none;
       border-bottom: 1px solid var(--border-glass);
       transition: background 0.2s ease;
     }
     .competition-card-header:hover, .competition-header:hover {
-      background: rgba(26, 65, 58, 0.85);
+      background: rgba(8, 123, 255, 0.15);
     }
     .comp-header-left, .comp-title-left {
       display: flex;
@@ -1537,7 +1545,7 @@
       height: 26px;
       object-fit: contain;
       border-radius: 6px;
-      background: rgba(6, 35, 32, 0.7);
+      background: rgba(13, 30, 54, 0.78);
       padding: 2px;
       border: 1px solid var(--border-glass);
     }
@@ -1545,7 +1553,7 @@
       font-size: 0.68rem;
       text-transform: uppercase;
       font-weight: 800;
-      color: #FF8749;
+      color: #00D9FF;
       letter-spacing: 0.06em;
     }
     .comp-title-text, .comp-name {
@@ -1628,8 +1636,8 @@
       flex-shrink: 0;
       border-radius: 6px;
       vertical-align: middle;
-      background: rgba(6, 35, 32, 0.75);
-      border: 1px solid var(--border-glass);
+      background: rgba(13, 30, 54, 0.85);
+      border: 1px solid rgba(0, 217, 255, 0.18);
       padding: 2px;
     }
     .featured-team .team-crest-wrapper {
@@ -1639,7 +1647,7 @@
       width: 46px;
       height: 46px;
       padding: 3px;
-      background: rgba(6, 35, 32, 0.8);
+      background: rgba(13, 30, 54, 0.85);
       border-radius: 10px;
       border: 1px solid var(--border-glass);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -1682,7 +1690,7 @@
       color: var(--text);
     }
     .match-row-score.finished {
-      color: #FF8749;
+      color: #00D9FF;
     }
     .match-row-score.live {
       color: #ef4444;
@@ -1709,8 +1717,8 @@
       box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
     }
     .btn-row-predict {
-      background: linear-gradient(135deg, #FF6B24 0%, #FF8749 100%);
-      color: #062320;
+      background: linear-gradient(135deg, #087BFF 0%, #00D9FF 100%);
+      color: #071426;
       font-weight: 800;
       border: none;
       padding: 0.28rem 0.75rem;
@@ -1721,7 +1729,7 @@
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .btn-row-predict:hover {
-      background: linear-gradient(135deg, #FF8749 0%, #FFA06E 100%);
+      background: linear-gradient(135deg, #00D9FF 0%, #087BFF 100%);
       color: #000000;
       transform: translateY(-1px) scale(1.02);
       box-shadow: var(--orange-glow-lg);
@@ -1739,13 +1747,13 @@
       line-height: 1;
     }
     .star-btn:hover, .btn-star-fav:hover {
-      color: #FF8749;
+      color: #00D9FF;
       transform: scale(1.2);
-      text-shadow: 0 0 10px rgba(255, 107, 36, 0.6);
+      text-shadow: 0 0 10px rgba(0, 217, 255, 0.6);
     }
     .star-btn.active, .btn-star-fav.active {
-      color: #FF6B24;
-      text-shadow: 0 0 12px rgba(255, 107, 36, 0.75);
+      color: #00D9FF;
+      text-shadow: 0 0 12px rgba(0, 217, 255, 0.75);
     }
 
     /* Pulsing Live Dot */
@@ -1777,7 +1785,7 @@
       font-size: 0.8rem;
     }
     .slider-labels span:first-child { font-weight: 700; color: #ffffff; }
-    .slider-labels span:last-child { color: #FF8749; font-weight: 800; }
+    .slider-labels span:last-child { color: #00D9FF; font-weight: 800; }
     input[type="range"] {
       width: 100%;
       accent-color: var(--primary-accent);
@@ -1835,7 +1843,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(6, 35, 32, 0.85);
+      background: rgba(13, 30, 54, 0.88);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       margin-top: auto;
@@ -2094,7 +2102,7 @@
           <div class="date-picker-wrap">
             <input type="date" id="discovery-date-picker" class="date-picker-input" onchange="onCustomDatePicked(this.value)" title="Choose calendar date">
             <button class="btn btn-sm btn-outline" onclick="syncSelectedDate()" id="btn-sync-date" title="Fetch latest fixtures from API-Football">🔄 Sync Date</button>
-            <button class="btn btn-sm btn-primary" onclick="syncUpcomingFixtures(7)" id="btn-sync-upcoming" title="Fetch 7-day upcoming fixtures and auto-predict" style="background: linear-gradient(135deg, #FF6B24, #FF8749); border: none; font-weight: 700; color: #fff;">🗓️ Sync 7-Day Window</button>
+            <button class="btn btn-sm btn-primary" onclick="syncUpcomingFixtures(7)" id="btn-sync-upcoming" title="Fetch 7-day upcoming fixtures and auto-predict" style="background: linear-gradient(135deg, #087BFF, #00D9FF); border: none; font-weight: 800; color: #071426; box-shadow: 0 0 14px rgba(0, 217, 255, 0.4);">🗓️ Sync 7-Day Window</button>
           </div>
 
         </div>
@@ -2397,22 +2405,22 @@
 
       <!-- Summary Statistics KPI Header -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Completed Fixtures</div>
           <div class="stat-value" id="hist-total-matches" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin: 0.25rem 0;">--</div>
           <div class="stat-sub" id="hist-total-picks" style="font-size: 0.78rem; color: var(--text-muted);">-- total market predictions</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Historical Win Rate</div>
           <div class="stat-value" id="hist-win-rate" style="font-size: 1.8rem; font-weight: 800; color: #34d399; margin: 0.25rem 0;">--%</div>
           <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-muted);">Verified against official final scores</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Picks Won vs Lost</div>
           <div class="stat-value" id="hist-win-loss" style="font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 0.25rem 0;">-- W / -- L</div>
           <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-muted);">Decided betting markets</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Pushes (Returned Stakes)</div>
           <div class="stat-value" id="hist-pushes" style="font-size: 1.8rem; font-weight: 800; color: #38bdf8; margin: 0.25rem 0;">--</div>
           <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-muted);">Draw No Bet refund coverage</div>
@@ -2433,7 +2441,7 @@
       </div>
 
       <!-- Active Historical Date Banner -->
-      <div id="history-date-banner" class="discovery-banner" style="margin-bottom: 1.25rem; background: rgba(10, 54, 48, 0.65); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <div id="history-date-banner" class="discovery-banner" style="margin-bottom: 1.25rem; background: rgba(13, 30, 54, 0.78); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
         <div style="display: flex; align-items: center; gap: 0.65rem;">
           <span style="font-size: 1.25rem;">📅</span>
           <span id="history-selected-date-text" style="font-family: var(--font-title); font-size: 1.05rem; font-weight: 700; color: #fff;">All Historical Matchdays</span>
@@ -2445,16 +2453,16 @@
       </div>
 
       <!-- Filter, Search & Action Bar -->
-      <div style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+      <div style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; flex: 1; min-width: 280px;">
-          <input type="text" id="search-history" placeholder="🔍 Search past matches by team or competition..." style="background: rgba(6, 35, 32, 0.8); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; width: 300px; outline: none;" oninput="onHistorySearchInput()">
-          <select id="filter-history-outcome" onchange="onHistoryFilterChange()" style="background: rgba(6, 35, 32, 0.8); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;">
+          <input type="text" id="search-history" placeholder="🔍 Search past matches by team or competition..." style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; width: 300px; outline: none;" oninput="onHistorySearchInput()">
+          <select id="filter-history-outcome" onchange="onHistoryFilterChange()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;">
             <option value="all">All Outcomes</option>
             <option value="WIN">Wins Only (✅)</option>
             <option value="LOSS">Losses Only (❌)</option>
             <option value="PUSH">Pushes / Refunds (🔄)</option>
           </select>
-          <select id="filter-history-market" onchange="onHistoryFilterChange()" style="background: rgba(6, 35, 32, 0.8); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;">
+          <select id="filter-history-market" onchange="onHistoryFilterChange()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;">
             <option value="all">All Markets</option>
             <option value="1X2">Match Outcome (1X2)</option>
             <option value="BTTS">Both Teams to Score (BTTS)</option>
@@ -2467,7 +2475,7 @@
           </select>
         </div>
         <div style="display: flex; gap: 0.6rem; align-items: center;">
-          <button class="btn btn-sm btn-secondary" onclick="loadHistoryFeed()" style="background: rgba(20, 110, 95, 0.5); border: 1px solid rgba(232, 227, 214, 0.18); color: #E8E3D6; border-radius: 8px; padding: 0.45rem 0.85rem; cursor: pointer;">🔄 Refresh</button>
+          <button class="btn btn-sm btn-secondary" onclick="loadHistoryFeed()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.22); color: #FFFFFF; border-radius: 8px; padding: 0.45rem 0.85rem; cursor: pointer;">🔄 Refresh</button>
         </div>
       </div>
 
@@ -2485,22 +2493,22 @@
 
       <!-- Performance Summary Cards -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Overall Prediction Accuracy</div>
           <div class="stat-value" id="perf-overall-acc" style="font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 0.25rem 0;">--%</div>
           <div class="stat-sub" id="perf-sample-size" style="font-size: 0.78rem; color: var(--text-muted);">Sample: 0 evaluated matches</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Mean Brier Score</div>
           <div class="stat-value" id="perf-brier-score" style="font-size: 1.8rem; font-weight: 800; color: #38bdf8; margin: 0.25rem 0;">--</div>
           <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-muted);">Calibrated probabilistic loss (lower is better)</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Mean Calibration Gap (ECE)</div>
           <div class="stat-value" id="perf-ece-score" style="font-size: 1.8rem; font-weight: 800; color: #a78bfa; margin: 0.25rem 0;">--</div>
           <div class="stat-sub" style="font-size: 0.78rem; color: var(--text-muted);">Expected Calibration Error across deciles</div>
         </div>
-        <div class="stat-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="stat-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="stat-label" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Settlement Accounting</div>
           <div class="stat-value" id="perf-settlement-stats" style="font-size: 1.4rem; font-weight: 800; color: #34d399; margin: 0.25rem 0;">-- W / -- L</div>
           <div class="stat-sub" id="perf-push-stats" style="font-size: 0.78rem; color: var(--text-muted);">-- Pushes (Refunds) • -- Voids</div>
@@ -2508,31 +2516,31 @@
       </div>
 
       <!-- Controls & Filter Bar -->
-      <div style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+      <div style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
           <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 0.25rem;">Timeframe:</span>
-          <button class="filter-pill active" id="btn-tf-all" onclick="setTimeframeFilter('all', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: rgba(255, 107, 36, 0.2); color: #fff; cursor: pointer;">All Time</button>
+          <button class="filter-pill active" id="btn-tf-all" onclick="setTimeframeFilter('all', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: rgba(0, 217, 255, 0.2); color: #fff; cursor: pointer;">All Time</button>
           <button class="filter-pill" id="btn-tf-7d" onclick="setTimeframeFilter('7d', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">7 Days</button>
           <button class="filter-pill" id="btn-tf-30d" onclick="setTimeframeFilter('30d', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">30 Days</button>
           <button class="filter-pill" id="btn-tf-90d" onclick="setTimeframeFilter('90d', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">90 Days</button>
         </div>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
           <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 0.25rem;">Confidence:</span>
-          <button class="filter-pill active" id="btn-cf-all" onclick="setConfidenceFilter('all', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: rgba(255, 107, 36, 0.2); color: #fff; cursor: pointer;">All Tiers</button>
+          <button class="filter-pill active" id="btn-cf-all" onclick="setConfidenceFilter('all', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: rgba(0, 217, 255, 0.2); color: #fff; cursor: pointer;">All Tiers</button>
           <button class="filter-pill" id="btn-cf-high" onclick="setConfidenceFilter('HIGH', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">High</button>
           <button class="filter-pill" id="btn-cf-med" onclick="setConfidenceFilter('MEDIUM', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">Medium</button>
           <button class="filter-pill" id="btn-cf-low" onclick="setConfidenceFilter('LOW', this)" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 20px; border: 1px solid rgba(232, 227, 214, 0.18); background: transparent; color: var(--text-muted); cursor: pointer;">Low</button>
         </div>
         <div style="display: flex; gap: 0.6rem; align-items: center;">
-          <button class="btn btn-sm btn-secondary" onclick="runBacktest()" style="background: rgba(20, 110, 95, 0.5); border: 1px solid rgba(232, 227, 214, 0.18); color: #E8E3D6; border-radius: 8px; padding: 0.4rem 0.8rem; cursor: pointer;">🧪 Run Backtest</button>
-          <button class="btn btn-sm btn-success" onclick="evaluatePredictions()" style="background: linear-gradient(135deg, #FF6B24, #FF8749); border: none; color: #fff; border-radius: 8px; padding: 0.4rem 0.8rem; cursor: pointer; box-shadow: 0 0 12px rgba(255, 107, 36, 0.3);">⚡ Settle Matches</button>
+          <button class="btn btn-sm btn-secondary" onclick="runBacktest()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.22); color: #FFFFFF; border-radius: 8px; padding: 0.4rem 0.8rem; cursor: pointer;">🧪 Run Backtest</button>
+          <button class="btn btn-sm btn-success" onclick="evaluatePredictions()" style="background: linear-gradient(135deg, #087BFF, #00D9FF); border: none; color: #071426; font-weight: 800; border-radius: 8px; padding: 0.4rem 0.8rem; cursor: pointer; box-shadow: 0 0 14px rgba(0, 217, 255, 0.4);">⚡ Settle Matches</button>
         </div>
       </div>
 
       <!-- Backtest Results Banner -->
-      <div id="backtest-results-panel" class="section-card" style="display: none; margin-bottom: 1.5rem; background: rgba(10, 54, 48, 0.75); border: 1px solid #FF6B24; border-radius: 12px; padding: 1.25rem;">
+      <div id="backtest-results-panel" class="section-card" style="display: none; margin-bottom: 1.5rem; background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.35); box-shadow: 0 0 20px rgba(0, 217, 255, 0.15); border-radius: 12px; padding: 1.25rem;">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <div class="section-title" style="font-weight: 800; font-size: 1.05rem; color: #FF8749;">🧪 Chronological Walk-Forward Backtest Results</div>
+          <div class="section-title" style="font-weight: 800; font-size: 1.05rem; color: #00D9FF;">🧪 Chronological Walk-Forward Backtest Results</div>
           <button class="btn btn-sm btn-secondary" onclick="document.getElementById('backtest-results-panel').style.display='none'">✕ Dismiss</button>
         </div>
         <div id="backtest-content" style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
@@ -2542,7 +2550,7 @@
 
       <!-- Best & Worst Markets Highlight Cards -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(52, 211, 153, 0.3); border-radius: 12px; padding: 1.25rem; box-shadow: 0 0 15px rgba(52, 211, 153, 0.08);">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(52, 211, 153, 0.3); border-radius: 12px; padding: 1.25rem; box-shadow: 0 0 15px rgba(52, 211, 153, 0.08);">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #34d399; display: flex; align-items: center; gap: 0.5rem;">
               <span>🏆</span> Best-Performing Prediction Markets
@@ -2554,12 +2562,12 @@
           </div>
         </div>
 
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(255, 107, 36, 0.3); border-radius: 12px; padding: 1.25rem; box-shadow: 0 0 15px rgba(255, 107, 36, 0.08);">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(0, 217, 255, 0.3); border-radius: 12px; padding: 1.25rem; box-shadow: 0 0 15px rgba(0, 217, 255, 0.08);">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #FF8749; display: flex; align-items: center; gap: 0.5rem;">
+            <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #00D9FF; display: flex; align-items: center; gap: 0.5rem;">
               <span>⚠️</span> Low-Margin / Divergent Markets
             </div>
-            <span class="badge" style="background: rgba(255, 107, 36, 0.15); color: #FF8749; border: 1px solid #FF8749; font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px;">Hedging Advised</span>
+            <span class="badge" style="background: rgba(0, 217, 255, 0.12); color: #00D9FF; border: 1px solid rgba(0, 217, 255, 0.35); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: 4px;">Hedging Advised</span>
           </div>
           <div id="worst-markets-container" style="display: flex; flex-direction: column; gap: 0.65rem;">
             <div style="color: var(--text-muted); font-size: 0.85rem;">Loading markets...</div>
@@ -2570,7 +2578,7 @@
       <!-- Side-by-Side: Accuracy by League & Confidence Tier Calibration -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
         <!-- By League -->
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">🌍 Accuracy by League & Competition</div>
           </div>
@@ -2595,7 +2603,7 @@
         </div>
 
         <!-- By Confidence -->
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">⭐ Confidence Tier Calibration (Ensemble)</div>
           </div>
@@ -2623,7 +2631,7 @@
       <!-- Side-by-Side: Accuracy by Market & by Model -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
         <!-- By Market -->
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">📊 Accuracy by Prediction Market</div>
           </div>
@@ -2650,7 +2658,7 @@
         </div>
 
         <!-- By Model -->
-        <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+        <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
           <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">🔬 Accuracy by Prediction Model</div>
           </div>
@@ -2677,10 +2685,10 @@
       </div>
 
       <!-- Probability Calibration & Reliability Curve Table -->
-      <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+      <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
           <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">🎯 Probability Calibration & Reliability Deciles</div>
-          <span class="badge" style="background: rgba(255, 107, 36, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem;">Empirical Calibration</span>
+          <span class="badge" style="background: rgba(0, 217, 255, 0.15); color: #00D9FF; border: 1px solid #00D9FF; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem;">Empirical Calibration</span>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
           Binned probability calibration curve comparing predicted confidence against empirical observed win rate.
@@ -2705,7 +2713,7 @@
       </div>
 
       <!-- Raw Metric Details Table -->
-      <div class="section-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
+      <div class="section-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem;">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
           <div class="section-title" style="font-weight: 800; font-size: 1rem; color: #fff;">📋 Full Model x Market Accuracy Registry</div>
         </div>
@@ -2753,7 +2761,7 @@
 
           </div>
 
-          <div style="background: rgba(255, 107, 36, 0.08); border: 1px solid rgba(255, 107, 36, 0.25); border-radius: 10px; padding: 1rem; margin-top: 1.25rem; backdrop-filter: blur(12px); box-shadow: var(--glass-shadow);">
+          <div style="background: rgba(8, 123, 255, 0.08); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 10px; padding: 1rem; margin-top: 1.25rem; backdrop-filter: blur(12px); box-shadow: var(--glass-shadow);">
 
             <label style="font-size: 0.82rem; font-weight: 700; color: #fff; display: block; margin-bottom: 0.4rem;">
 
@@ -2808,7 +2816,7 @@
           </div>
 
           <!-- Add Additional Telegram Recipient Form -->
-          <div style="background: rgba(26, 65, 58, 0.45); border: 1px solid var(--border-glass); border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--glass-shadow); backdrop-filter: blur(12px);">
+          <div style="background: rgba(13, 30, 54, 0.45); border: 1px solid var(--border-glass); border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--glass-shadow); backdrop-filter: blur(12px);">
 
             <div style="font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
               <span>➕ Add Additional Telegram ID or Recipient:</span>
@@ -4620,14 +4628,18 @@
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
         <defs>
           <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#0A3630"/>
-            <stop offset="100%" stop-color="#062320"/>
+            <stop offset="0%" stop-color="#0D1E36"/>
+            <stop offset="100%" stop-color="#071426"/>
+          </linearGradient>
+          <linearGradient id="shieldStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#087BFF"/>
+            <stop offset="100%" stop-color="#00D9FF"/>
           </linearGradient>
         </defs>
-        <path d="M32 4 L56 12 L56 34 C56 48 44 58 32 62 C20 58 8 48 8 34 L8 12 Z" fill="url(#shieldGrad)" stroke="#FF6B24" stroke-width="2.5"/>
-        <path d="M32 9 L51 16 L51 34 C51 45 41 53 32 57 C23 53 13 45 13 34 L13 16 Z" fill="none" stroke="rgba(255, 107, 36, 0.3)" stroke-width="1"/>
-        <circle cx="32" cy="22" r="5" fill="#FF8749" opacity="0.85"/>
-        <text x="32" y="44" font-family="'Inter', system-ui, sans-serif" font-size="13" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="0.5">${init}</text>
+        <path d="M32 4 L56 12 L56 34 C56 48 44 58 32 62 C20 58 8 48 8 34 L8 12 Z" fill="url(#shieldGrad)" stroke="url(#shieldStroke)" stroke-width="2.5"/>
+        <path d="M32 9 L51 16 L51 34 C51 45 41 53 32 57 C23 53 13 45 13 34 L13 16 Z" fill="none" stroke="rgba(0, 217, 255, 0.35)" stroke-width="1"/>
+        <circle cx="32" cy="22" r="5" fill="#00D9FF" opacity="0.9"/>
+        <text x="32" y="44" font-family="'Inter', system-ui, sans-serif" font-size="13" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">${init}</text>
       </svg>`;
       return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
     }
@@ -6321,7 +6333,7 @@
       allPill.className = "date-pill" + (!historySelectedDate ? " active" : "");
       allPill.title = "View all settled match predictions across all dates";
       allPill.innerHTML = `
-        <span class="day-title" style="color: ${!historySelectedDate ? '#FF8749' : 'var(--text-muted)'};">ALL DATES</span>
+        <span class="day-title" style="color: ${!historySelectedDate ? '#00D9FF' : 'var(--text-muted)'};">ALL DATES</span>
         <span class="day-num" style="font-size: 0.82rem;">Archive</span>
       `;
       allPill.onclick = () => clearHistoryDateFilter();
@@ -6339,7 +6351,7 @@
         pill.className = "date-pill" + (isActive ? " active" : "");
         pill.title = `${dStr}: ${d.count} finished match${d.count === 1 ? '' : 'es'} with verified predictions`;
         pill.innerHTML = `
-          <span class="day-title" style="color: ${isActive ? '#FF8749' : 'var(--text-muted)'};">${weekday} <span style="font-size: 0.68rem; color: ${isActive ? '#fff' : 'var(--accent)'}; font-weight: 800;">(${d.count})</span></span>
+          <span class="day-title" style="color: ${isActive ? '#00D9FF' : 'var(--text-muted)'};">${weekday} <span style="font-size: 0.68rem; color: ${isActive ? '#fff' : 'var(--accent)'}; font-weight: 800;">(${d.count})</span></span>
           <span class="day-num">${monthDay}</span>
         `;
         pill.onclick = () => selectHistoryDate(dStr);
@@ -6365,14 +6377,14 @@
           const matchCount = summary ? summary.total_matches : (historyAvailableDates.find(x => x.date === historySelectedDate)?.count || 0);
           const pickCount = summary ? summary.total_picks : 0;
           badgeEl.innerText = `${matchCount} Finished Match${matchCount === 1 ? '' : 'es'} (${pickCount} Verified Picks)`;
-          badgeEl.style.background = "rgba(255, 107, 36, 0.22)";
+          badgeEl.style.background = "rgba(0, 217, 255, 0.22)";
           badgeEl.style.borderColor = "var(--primary-accent)";
           badgeEl.style.color = "var(--accent)";
         }
         if (clearBtn) {
           clearBtn.style.borderColor = "var(--primary-accent)";
-          clearBtn.style.color = "#FF8749";
-          clearBtn.style.background = "rgba(255, 107, 36, 0.15)";
+          clearBtn.style.color = "#00D9FF";
+          clearBtn.style.background = "rgba(0, 217, 255, 0.15)";
         }
       } else {
         if (titleEl) titleEl.innerText = "All Historical Matchdays";
@@ -6458,8 +6470,8 @@
 
       container.innerHTML = `
         <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
-          <div style="display: inline-block; width: 28px; height: 28px; border: 3px solid rgba(255, 107, 36, 0.2); border-top-color: #FF6B24; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.8rem;"></div>
-          <div style="font-size: 0.95rem; color: #E8E3D6; font-weight: 600;">Loading verified prediction history & official results...</div>
+          <div style="display: inline-block; width: 28px; height: 28px; border: 3px solid rgba(0, 217, 255, 0.2); border-top-color: #00D9FF; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.8rem;"></div>
+          <div style="font-size: 0.95rem; color: #FFFFFF; font-weight: 600;">Loading verified prediction history & official results...</div>
         </div>
       `;
 
@@ -6504,15 +6516,15 @@
         if (historyItems.length === 0) {
           const dateNotice = historySelectedDate ? `for <strong>${historySelectedDate}</strong>` : "match your search or filter criteria";
           container.innerHTML = `
-            <div style="text-align: center; color: var(--text-muted); padding: 3.5rem 1.5rem; background: rgba(10, 54, 48, 0.4); border-radius: 12px; border: 1px dashed rgba(232, 227, 214, 0.15);">
+            <div style="text-align: center; color: var(--text-muted); padding: 3.5rem 1.5rem; background: rgba(13, 30, 54, 0.4); border-radius: 12px; border: 1px dashed rgba(232, 227, 214, 0.15);">
               <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📜</div>
-              <div style="font-size: 1.15rem; font-weight: 700; color: #E8E3D6; margin-bottom: 0.4rem;">No Completed Matches Found</div>
+              <div style="font-size: 1.15rem; font-weight: 700; color: #FFFFFF; margin-bottom: 0.4rem;">No Completed Matches Found</div>
               <div style="font-size: 0.85rem; color: var(--text-muted); max-width: 480px; margin: 0 auto 1.25rem;">
                 No completed fixtures ${dateNotice}. Try choosing another date from the calendar or viewing all historical matches.
               </div>
               <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
                 <button class="btn btn-sm btn-outline" onclick="clearHistoryDateFilter()" style="padding: 0.45rem 1rem;">🗓️ Show All Dates</button>
-                <button class="btn btn-sm btn-secondary" onclick="resetHistoryFilters()" style="background: rgba(20, 110, 95, 0.5); border: 1px solid rgba(232, 227, 214, 0.2); color: #E8E3D6; border-radius: 8px; padding: 0.45rem 1rem; cursor: pointer;">Reset All Filters</button>
+                <button class="btn btn-sm btn-secondary" onclick="resetHistoryFilters()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.22); color: #FFFFFF; border-radius: 8px; padding: 0.45rem 1rem; cursor: pointer;">Reset All Filters</button>
               </div>
             </div>
           `;
@@ -6575,7 +6587,7 @@
               const probPercent = (p.probability * 100).toFixed(1);
 
               predictionsHtml += `
-                <div style="background: rgba(6, 35, 32, 0.7); border: 1px solid rgba(232, 227, 214, 0.1); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem; transition: transform 0.2s, border-color 0.2s;" onmouseenter="this.style.borderColor='rgba(255,107,36,0.35)'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='rgba(232, 227, 214, 0.1)'; this.style.transform='translateY(0)';">
+                <div style="background: rgba(13, 30, 54, 0.78); border: 1px solid rgba(232, 227, 214, 0.1); border-radius: 10px; padding: 0.75rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem; transition: transform 0.2s, border-color 0.2s;" onmouseenter="this.style.borderColor='rgba(0, 217, 255, 0.35)'; this.style.transform='translateY(-2px)';" onmouseleave="this.style.borderColor='rgba(232, 227, 214, 0.1)'; this.style.transform='translateY(0)';">
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.04em;">${formatMarketLabel(p.market)}</span>
                     ${confBadge}
@@ -6589,7 +6601,7 @@
                     </div>
                   </div>
                   <div style="background: rgba(0,0,0,0.3); border-radius: 4px; height: 4px; overflow: hidden; width: 100%;">
-                    <div style="background: linear-gradient(90deg, #FF6B24, #34d399); width: ${probPercent}%; height: 100%;"></div>
+                    <div style="background: linear-gradient(90deg, #087BFF, #00D9FF); width: ${probPercent}%; height: 100%;"></div>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem; padding-top: 0.4rem; border-top: 1px solid rgba(232, 227, 214, 0.06);">
                     <span style="font-size: 0.7rem; color: var(--text-muted);">Result Settlement:</span>
@@ -6601,7 +6613,7 @@
           }
 
           html += `
-            <div class="history-fixture-card" style="background: rgba(10, 54, 48, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem; transition: border-color 0.25s, box-shadow 0.25s;" onmouseenter="this.style.borderColor='rgba(255, 107, 36, 0.35)'; this.style.boxShadow='0 8px 32px rgba(0,0,0,0.3)';" onmouseleave="this.style.borderColor='rgba(232, 227, 214, 0.14)'; this.style.boxShadow='none';">
+            <div class="history-fixture-card" style="background: rgba(13, 30, 54, 0.78); backdrop-filter: blur(16px); border: 1px solid rgba(232, 227, 214, 0.14); border-radius: 12px; padding: 1.25rem; transition: border-color 0.25s, box-shadow 0.25s;" onmouseenter="this.style.borderColor='rgba(0, 217, 255, 0.35)'; this.style.boxShadow='0 8px 32px rgba(0,0,0,0.3)';" onmouseleave="this.style.borderColor='rgba(232, 227, 214, 0.14)'; this.style.boxShadow='none';">
               <!-- Header: Competition & Meta -->
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(232, 227, 214, 0.08);">
                 <div style="display: flex; align-items: center; gap: 0.6rem; overflow: hidden;">
@@ -6622,7 +6634,7 @@
                 <!-- Home Team -->
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.85rem; text-align: right;">
                   <div style="overflow: hidden;">
-                    <div style="font-weight: 800; font-size: 1.05rem; color: ${isHomeWinner ? '#fff' : '#E8E3D6'};">${homeName}</div>
+                    <div style="font-weight: 800; font-size: 1.05rem; color: ${isHomeWinner ? '#FFFFFF' : '#B8F5FF'};">${homeName}</div>
                     <div style="font-size: 0.72rem; color: ${isHomeWinner ? '#34d399' : 'var(--text-muted)'}; font-weight: 600;">${isHomeWinner ? '👑 Winner' : 'Home'}</div>
                   </div>
                   <div class="team-crest-wrapper" style="width: 44px; height: 44px; min-width: 44px;">
@@ -6632,7 +6644,7 @@
 
                 <!-- Scoreboard Display -->
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 130px; text-align: center;">
-                  <div style="background: rgba(6, 35, 32, 0.95); border: 1px solid rgba(255, 107, 36, 0.35); box-shadow: 0 0 16px rgba(255, 107, 36, 0.15); border-radius: 10px; padding: 0.45rem 1.25rem; font-size: 1.85rem; font-weight: 900; letter-spacing: 2px; color: #fff;">
+                  <div style="background: rgba(13, 30, 54, 0.95); border: 1px solid rgba(0, 217, 255, 0.35); box-shadow: 0 0 16px rgba(0, 217, 255, 0.15); border-radius: 10px; padding: 0.45rem 1.25rem; font-size: 1.85rem; font-weight: 900; letter-spacing: 2px; color: #fff;">
                     ${score.display || `${score.home} - ${score.away}`}
                   </div>
                   <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.35rem; font-weight: 700;">
@@ -6646,19 +6658,19 @@
                     <img class="team-crest" src="${awayCrest}" onerror="onCrestError(this, '${awayFlag}', '${awayEsc}')" alt="${awayName}" style="width: 40px; height: 40px; object-fit: contain;" />
                   </div>
                   <div style="overflow: hidden;">
-                    <div style="font-weight: 800; font-size: 1.05rem; color: ${isAwayWinner ? '#fff' : '#E8E3D6'};">${awayName}</div>
+                    <div style="font-weight: 800; font-size: 1.05rem; color: ${isAwayWinner ? '#FFFFFF' : '#B8F5FF'};">${awayName}</div>
                     <div style="font-size: 0.72rem; color: ${isAwayWinner ? '#34d399' : 'var(--text-muted)'}; font-weight: 600;">${isAwayWinner ? '👑 Winner' : 'Away'}</div>
                   </div>
                 </div>
               </div>
 
               <!-- Predictions & Settlements Grid -->
-              <div style="background: rgba(6, 35, 32, 0.5); border-radius: 10px; padding: 0.85rem; border: 1px solid rgba(232, 227, 214, 0.08);">
+              <div style="background: rgba(13, 30, 54, 0.60); border-radius: 10px; padding: 0.85rem; border: 1px solid rgba(232, 227, 214, 0.08);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
-                  <div style="font-size: 0.76rem; text-transform: uppercase; font-weight: 800; color: #E8E3D6; letter-spacing: 0.06em; display: flex; align-items: center; gap: 0.4rem;">
+                  <div style="font-size: 0.76rem; text-transform: uppercase; font-weight: 800; color: #FFFFFF; letter-spacing: 0.06em; display: flex; align-items: center; gap: 0.4rem;">
                     <span>⚡ Zola Ensemble Predictions & Results</span>
                   </div>
-                  <button class="btn btn-sm btn-secondary" onclick="openPredictionModal(${item.fixture_id})" style="background: rgba(255, 107, 36, 0.15); border: 1px solid rgba(255, 107, 36, 0.35); color: var(--accent); padding: 0.25rem 0.65rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                  <button class="btn btn-sm btn-secondary" onclick="openPredictionModal(${item.fixture_id})" style="background: rgba(0, 217, 255, 0.15); border: 1px solid rgba(0, 217, 255, 0.35); color: var(--accent); padding: 0.25rem 0.65rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
                     🔍 View In-Depth Analysis
                   </button>
                 </div>
@@ -6694,7 +6706,7 @@
         b.style.color = "var(--text-muted)";
       });
       if (btn) {
-        btn.style.background = "rgba(255, 107, 36, 0.25)";
+        btn.style.background = "rgba(0, 217, 255, 0.25)";
         btn.style.color = "#fff";
       }
       loadMetrics();
@@ -6707,7 +6719,7 @@
         b.style.color = "var(--text-muted)";
       });
       if (btn) {
-        btn.style.background = "rgba(255, 107, 36, 0.25)";
+        btn.style.background = "rgba(0, 217, 255, 0.25)";
         btn.style.color = "#fff";
       }
       loadMetrics();
@@ -6748,7 +6760,7 @@
             bestList.forEach((m, idx) => {
               const acc = (m.accuracy_rate * 100).toFixed(1);
               const div = document.createElement("div");
-              div.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(26, 65, 58, 0.4); border-radius: 8px; border: 1px solid rgba(52, 211, 153, 0.2);";
+              div.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(13, 30, 54, 0.4); border-radius: 8px; border: 1px solid rgba(52, 211, 153, 0.2);";
               div.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                   <span style="font-weight: 700; color: #34d399; font-size: 0.9rem;">#${idx + 1}</span>
@@ -6772,14 +6784,14 @@
             worstList.forEach((m, idx) => {
               const acc = (m.accuracy_rate * 100).toFixed(1);
               const div = document.createElement("div");
-              div.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(26, 65, 58, 0.4); border-radius: 8px; border: 1px solid rgba(255, 107, 36, 0.2);";
+              div.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: rgba(13, 30, 54, 0.4); border-radius: 8px; border: 1px solid rgba(0, 217, 255, 0.2);";
               div.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="font-weight: 700; color: #FF8749; font-size: 0.9rem;">#${idx + 1}</span>
+                  <span style="font-weight: 700; color: #00D9FF; font-size: 0.9rem;">#${idx + 1}</span>
                   <code style="color: #fff; font-weight: 600;">${m.market}</code>
                   <span style="font-size: 0.75rem; color: var(--text-muted);">(${m.correct_predictions}/${m.total_predictions} won)</span>
                 </div>
-                <div style="font-weight: 800; color: #FF8749; font-size: 1rem;">${acc}%</div>
+                <div style="font-weight: 800; color: #00D9FF; font-size: 1rem;">${acc}%</div>
               `;
               worstContainer.appendChild(div);
             });
