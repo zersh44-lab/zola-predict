@@ -1,0 +1,68 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment and secrets - NEVER COMMIT CREDENTIALS
+.env
+.env.local
+.env.*.local
+
+# SQLite and Local Data
+*.sqlite
+*.sqlite3
+*.db
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+!data/.gitkeep
+!data/zola_predict.db
+
+# Vercel deployment artifacts
+.vercel/
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+
+# Telegram authorization/session files
+*.session
+*.session-journal
+
