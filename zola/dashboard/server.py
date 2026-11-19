@@ -343,10 +343,87 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     feat = results["ensemble"]["1X2"].features or {}
                     smart_routing = feat.get("smart_routing")
 
+                # Pre-Match Context & Comparison Statistics
+                home_id = fixture.get("home_team_id")
+                away_id = fixture.get("away_team_id")
+                home_matches = repo.get_team_matches(home_id, limit=10) if home_id else []
+                away_matches = repo.get_team_matches(away_id, limit=10) if away_id else []
+                h2h_matches = repo.get_head_to_head_matches(home_id, away_id, limit=10) if (home_id and away_id) else []
+
+                def _extract_team_stats(matches):
+                    form = []
+                    gf_tot = 0
+                    ga_tot = 0
+                    clean_sheets = 0
+                    wins = 0
+                    for m in matches[:5]:
+                        w = m.get("winner")
+                        is_h = m.get("is_home")
+                        if w == "DRAW":
+                            form.append("D")
+                        elif (is_h == 1 and w == "HOME_TEAM") or (is_h == 0 and w == "AWAY_TEAM"):
+                            form.append("W")
+                            wins += 1
+                        else:
+                            form.append("L")
+
+                    for m in matches:
+                        is_h = m.get("is_home")
+                        gf = m.get("full_time_home_score") if is_h else m.get("full_time_away_score")
+                        ga = m.get("full_time_away_score") if is_h else m.get("full_time_home_score")
+                        if gf is not None:
+                            gf_tot += gf
+                        if ga is not None:
+                            ga_tot += ga
+                            if ga == 0:
+                                clean_sheets += 1
+
+                    n = max(len(matches), 1)
+                    return {
+                        "form": form,
+                        "avg_goals_scored": round(gf_tot / n, 2) if matches else None,
+                        "avg_goals_conceded": round(ga_tot / n, 2) if matches else None,
+                        "clean_sheet_pct": round((clean_sheets / n) * 100, 1) if matches else None,
+                        "win_rate_pct": round((wins / max(len(matches[:5]), 1)) * 100, 1) if matches else None,
+                    }
+
+                h_stats = _extract_team_stats(home_matches)
+                a_stats = _extract_team_stats(away_matches)
+
+                h2h_summary = {"total": len(h2h_matches), "home_wins": 0, "draws": 0, "away_wins": 0}
+                for m in h2h_matches:
+                    w = m.get("winner")
+                    m_hid = m.get("home_team_id")
+                    if w == "DRAW":
+                        h2h_summary["draws"] += 1
+                    elif (w == "HOME_TEAM" and m_hid == home_id) or (w == "AWAY_TEAM" and m_hid != home_id):
+                        h2h_summary["home_wins"] += 1
+                    elif (w == "AWAY_TEAM" and m_hid == home_id) or (w == "HOME_TEAM" and m_hid != home_id):
+                        h2h_summary["away_wins"] += 1
+
+                poi_feat = results.get("poisson", {}).get("1X2", {}).features or {}
+
+                comparison_stats = {
+                    "home_xg": poi_feat.get("lambda_home"),
+                    "away_xg": poi_feat.get("lambda_away"),
+                    "home_goals_scored": h_stats.get("avg_goals_scored"),
+                    "away_goals_scored": a_stats.get("avg_goals_scored"),
+                    "home_goals_conceded": h_stats.get("avg_goals_conceded"),
+                    "away_goals_conceded": a_stats.get("avg_goals_conceded"),
+                    "home_clean_sheet_pct": h_stats.get("clean_sheet_pct"),
+                    "away_clean_sheet_pct": a_stats.get("clean_sheet_pct"),
+                    "home_win_rate_pct": h_stats.get("win_rate_pct"),
+                    "away_win_rate_pct": a_stats.get("win_rate_pct"),
+                }
+
                 self._send_json({
                     "fixture": fixture,
                     "predictions": serialized,
                     "smart_routing": smart_routing,
+                    "home_form": h_stats.get("form", []),
+                    "away_form": a_stats.get("form", []),
+                    "h2h": h2h_summary,
+                    "comparison_stats": comparison_stats,
                 })
             finally:
                 conn.close()

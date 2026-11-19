@@ -111,6 +111,10 @@ def test_api_predict_fixture(test_dashboard_server):
         assert resp.status == 200
         data = json.loads(resp.read().decode("utf-8"))
         assert "predictions" in data
+        assert "home_form" in data
+        assert "away_form" in data
+        assert "h2h" in data
+        assert "comparison_stats" in data
         preds = data["predictions"]
         assert "ensemble" in preds
         assert "poisson" in preds
