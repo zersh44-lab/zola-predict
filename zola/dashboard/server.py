@@ -60,6 +60,79 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _handle_history_sync(self, settings: Settings, db_path: str) -> None:
+        """Fetch finished match results for recent matchdays (today & yesterday), persist scores, and evaluate predictions."""
+        from datetime import datetime, timedelta, timezone
+        from zola.client.api_sports import ApiSportsClient
+        from zola.database.models import MatchResult
+
+        conn = get_connection(db_path)
+        synced_count = 0
+        evaluated_result = {}
+        try:
+            repo = FootballRepository(conn)
+            if settings.football_api_key:
+                client = ApiSportsClient(api_key=settings.football_api_key)
+                now_utc = datetime.now(timezone.utc)
+                dates = [
+                    (now_utc - timedelta(days=1)).strftime("%Y-%m-%d"),
+                    now_utc.strftime("%Y-%m-%d"),
+                ]
+                cursor = conn.cursor()
+                for d in dates:
+                    try:
+                        fixtures, _, _ = client.get_fixtures(competition_code_or_id="all", date=d, status=None)
+                        finished = [
+                            f for f in fixtures
+                            if f.status in ("FINISHED", "FT", "AET", "PEN")
+                            or (f.result and f.result.full_time_home_score is not None)
+                        ]
+                        for sf in finished:
+                            if not sf.result or sf.result.full_time_home_score is None:
+                                continue
+                            cursor.execute("SELECT id FROM fixtures WHERE external_id = ?", (str(sf.external_id),))
+                            row = cursor.fetchone()
+                            fid = row["id"] if row else None
+                            if not fid:
+                                cursor.execute(
+                                    """
+                                    SELECT f.id FROM fixtures f
+                                    JOIN teams ht ON f.home_team_id = ht.id
+                                    JOIN teams at ON f.away_team_id = at.id
+                                    WHERE (ht.external_id = ? AND at.external_id = ?)
+                                      AND substr(f.utc_date, 1, 10) = ?
+                                    """,
+                                    (str(sf.home_team.external_id), str(sf.away_team.external_id), d),
+                                )
+                                row2 = cursor.fetchone()
+                                fid = row2["id"] if row2 else None
+                            if fid:
+                                cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
+                                repo.upsert_match_result(
+                                    MatchResult(
+                                        fixture_id=fid,
+                                        winner=sf.result.winner,
+                                        duration=sf.result.duration or "REGULAR",
+                                        full_time_home_score=sf.result.full_time_home_score,
+                                        full_time_away_score=sf.result.full_time_away_score,
+                                        half_time_home_score=sf.result.half_time_home_score,
+                                        half_time_away_score=sf.result.half_time_away_score,
+                                    )
+                                )
+                                synced_count += 1
+                        conn.commit()
+                    except Exception as e:
+                        logger.warning("History sync failed for date %s: %s", d, e)
+
+            evaluated_result = repo.evaluate_predictions()
+            self._send_json({
+                "status": "success",
+                "synced_fixtures": synced_count,
+                "evaluated_predictions": evaluated_result,
+            })
+        finally:
+            conn.close()
+
     def do_OPTIONS(self) -> None:
         """Handle pre-flight CORS requests."""
         self.send_response(204)
@@ -693,6 +766,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 conn.close()
             return
 
+        # 8b. Sync & Settle Recent Prediction History (GET/POST)
+        if path in ("/api/history/sync", "/api/history/settle"):
+            self._handle_history_sync(settings, db_path)
+            return
+
         # 9. Telegram Info, Discovered Chats & Saved Recipients
         if path == "/api/telegram/info":
             sender = TelegramReportSender(settings.telegram_bot_token)
@@ -782,6 +860,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 body = json.loads(raw_body)
             except Exception:
                 body = {}
+
+        # 0. Sync & Settle Recent Prediction History (POST)
+        if path in ("/api/history/sync", "/api/history/settle"):
+            self._handle_history_sync(settings, db_path)
+            return
 
         # 0a. Run Walk-Forward Historical Backtest
         if path == "/api/backtest":
