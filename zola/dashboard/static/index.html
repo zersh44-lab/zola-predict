@@ -5658,6 +5658,10 @@
         const targetMarket = (smartRouting && smartRouting.active) ? ens[smartRouting.recommended_market] : ens1x2;
         const valAnalysis = targetMarket?.features?.value_analysis;
 
+        const fairOdd = (1 / Math.max(pickProb, 0.05)).toFixed(2);
+        const estMktOdd = (1 / (Math.max(pickProb, 0.05) * 1.05)).toFixed(2);
+        const targetValueOdd = (1 / (Math.max(pickProb, 0.05) * 0.95)).toFixed(2);
+
         if (valAnalysis && valAnalysis.status === "AVAILABLE" && valAnalysis.market_odd) {
           const oddNum = Number(valAnalysis.market_odd);
           const impProb = (valAnalysis.vig_free_prob || (1 / oddNum)) * 100;
@@ -5672,11 +5676,11 @@
             verdictEdge.className = "verdict-chip";
           }
         } else {
-          const fairOdd = (1 / Math.max(pickProb, 0.05)).toFixed(2);
-          verdictOdds.innerText = `Fair: @ ${fairOdd}`;
+          verdictOdds.innerText = `@ ${estMktOdd} (Fair: @ ${fairOdd})`;
           verdictImplied.innerText = `Implied: ${(pickProb * 100).toFixed(1)}%`;
-          verdictEdge.innerText = `Live Odds Pending`;
+          verdictEdge.innerText = `Target: ≥ @ ${targetValueOdd}`;
           verdictEdge.className = "verdict-chip";
+          verdictEdge.title = "Target odds to take for positive Expected Value (+EV)";
         }
 
         // 3. Pre-Match Context Row (Form & H2H)
@@ -5806,16 +5810,26 @@
               <div class="prob-bar-segment" style="width: ${aw}%; background: linear-gradient(90deg, #087BFF, #00D9FF);"></div>
             </div>
           `;
+          const pHome = p.probabilities?.HOME_WIN || 0.33;
+          const pDraw = p.probabilities?.DRAW || 0.33;
+          const pAway = p.probabilities?.AWAY_WIN || 0.33;
+          const hOdd = (1 / Math.max(pHome * 1.05, 0.05)).toFixed(2);
+          const dOdd = (1 / Math.max(pDraw * 1.05, 0.05)).toFixed(2);
+          const aOdd = (1 / Math.max(pAway * 1.05, 0.05)).toFixed(2);
           labelsHtml = `
             <div class="prob-labels">
-              <span>Home: ${hw}%</span>
-              <span>Draw: ${dr}%</span>
-              <span>Away: ${aw}%</span>
+              <span>Home: ${hw}% <strong style="color: #00D9FF;">@ ${hOdd}</strong></span>
+              <span>Draw: ${dr}% <strong style="color: #00D9FF;">@ ${dOdd}</strong></span>
+              <span>Away: ${aw}% <strong style="color: #00D9FF;">@ ${aOdd}</strong></span>
             </div>
           `;
         } else if (m.key === "BTTS") {
           const yes = ((p.probabilities?.BTTS_YES || p.probabilities?.YES || 0) * 100).toFixed(1);
           const no = ((p.probabilities?.BTTS_NO || p.probabilities?.NO || 0) * 100).toFixed(1);
+          const pYes = p.probabilities?.BTTS_YES || p.probabilities?.YES || 0.5;
+          const pNo = p.probabilities?.BTTS_NO || p.probabilities?.NO || 0.5;
+          const yesOdd = (1 / Math.max(pYes * 1.05, 0.05)).toFixed(2);
+          const noOdd = (1 / Math.max(pNo * 1.05, 0.05)).toFixed(2);
           barsHtml = `
             <div class="prob-bar-container">
               <div class="prob-bar-segment" style="width: ${yes}%; background: #10b981;"></div>
@@ -5824,15 +5838,19 @@
           `;
           labelsHtml = `
             <div class="prob-labels">
-              <span>Yes: ${yes}%</span>
-              <span>No: ${no}%</span>
-              <span>Conf: <strong style="color: ${p.confidence === 'HIGH' ? '#10b981' : p.confidence === 'MEDIUM' ? '#f59e0b' : '#ef4444'};">${p.confidence}</strong></span>
+              <span>Yes: ${yes}% <strong style="color: #00D9FF;">@ ${yesOdd}</strong></span>
+              <span>No: ${no}% <strong style="color: #00D9FF;">@ ${noOdd}</strong></span>
+              <span>Conf: <strong style="color: ${p.confidence === 'HIGH' ? '#00D9FF' : p.confidence === 'MEDIUM' ? '#38bdf8' : '#94a3b8'};">${p.confidence}</strong></span>
             </div>
           `;
         } else if (m.key.startsWith("OU")) {
           const code = m.key.replace("OU", "");
           const over = ((p.probabilities?.[`OVER_${code}`] || 0) * 100).toFixed(1);
           const under = ((p.probabilities?.[`UNDER_${code}`] || 0) * 100).toFixed(1);
+          const pOver = (p.probabilities?.[`OVER_${code}`] || 0.5);
+          const pUnder = (p.probabilities?.[`UNDER_${code}`] || 0.5);
+          const overOdd = (1 / Math.max(pOver * 1.05, 0.05)).toFixed(2);
+          const underOdd = (1 / Math.max(pUnder * 1.05, 0.05)).toFixed(2);
           barsHtml = `
             <div class="prob-bar-container">
               <div class="prob-bar-segment" style="width: ${over}%; background: linear-gradient(90deg, #087BFF, #00D9FF);"></div>
@@ -5841,8 +5859,8 @@
           `;
           labelsHtml = `
             <div class="prob-labels">
-              <span>Over: ${over}%</span>
-              <span>Under: ${under}%</span>
+              <span>Over: ${over}% <strong style="color: #00D9FF;">@ ${overOdd}</strong></span>
+              <span>Under: ${under}% <strong style="color: #00D9FF;">@ ${underOdd}</strong></span>
               <span>Conf: <strong style="color: ${p.confidence === 'HIGH' ? '#00D9FF' : (p.confidence === 'MEDIUM' ? '#38bdf8' : '#94a3b8')};">${p.confidence}</strong></span>
             </div>
           `;
@@ -5850,6 +5868,12 @@
           const p1x = ((p.probabilities?.["1X"] || 0) * 100).toFixed(1);
           const px2 = ((p.probabilities?.["X2"] || 0) * 100).toFixed(1);
           const p12 = ((p.probabilities?.["12"] || 0) * 100).toFixed(1);
+          const p1xRaw = p.probabilities?.["1X"] || 0.5;
+          const px2Raw = p.probabilities?.["X2"] || 0.5;
+          const p12Raw = p.probabilities?.["12"] || 0.5;
+          const dc1xOdd = (1 / Math.max(p1xRaw * 1.05, 0.05)).toFixed(2);
+          const dc12Odd = (1 / Math.max(p12Raw * 1.05, 0.05)).toFixed(2);
+          const dcX2Odd = (1 / Math.max(px2Raw * 1.05, 0.05)).toFixed(2);
           barsHtml = `
             <div class="prob-bar-container">
               <div class="prob-bar-segment" style="width: ${p1x}%; background: #087BFF;"></div>
@@ -5859,14 +5883,18 @@
           `;
           labelsHtml = `
             <div class="prob-labels">
-              <span>1X: ${p1x}%</span>
-              <span>12: ${p12}%</span>
-              <span>X2: ${px2}%</span>
+              <span>1X: ${p1x}% <strong style="color: #00D9FF;">@ ${dc1xOdd}</strong></span>
+              <span>12: ${p12}% <strong style="color: #00D9FF;">@ ${dc12Odd}</strong></span>
+              <span>X2: ${px2}% <strong style="color: #00D9FF;">@ ${dcX2Odd}</strong></span>
             </div>
           `;
         } else if (m.key === "DNB") {
           const p1 = ((p.probabilities?.["1_DNB"] || 0) * 100).toFixed(1);
           const p2 = ((p.probabilities?.["2_DNB"] || 0) * 100).toFixed(1);
+          const p1Raw = p.probabilities?.["1_DNB"] || 0.5;
+          const p2Raw = p.probabilities?.["2_DNB"] || 0.5;
+          const dnb1Odd = (1 / Math.max(p1Raw * 1.05, 0.05)).toFixed(2);
+          const dnb2Odd = (1 / Math.max(p2Raw * 1.05, 0.05)).toFixed(2);
           barsHtml = `
             <div class="prob-bar-container">
               <div class="prob-bar-segment" style="width: ${p1}%; background: #087BFF;"></div>
@@ -5875,13 +5903,14 @@
           `;
           labelsHtml = `
             <div class="prob-labels">
-              <span>1: ${p1}%</span>
-              <span>2: ${p2}%</span>
+              <span>1: ${p1}% <strong style="color: #00D9FF;">@ ${dnb1Odd}</strong></span>
+              <span>2: ${p2}% <strong style="color: #00D9FF;">@ ${dnb2Odd}</strong></span>
               <span style="color: var(--text-muted);">Push on Draw</span>
             </div>
           `;
         } else {
           const prob = (p.probability * 100).toFixed(1);
+          const estOdd = (1 / Math.max((p.probability || 0.5) * 1.05, 0.05)).toFixed(2);
           barsHtml = `
             <div class="prob-bar-container">
               <div class="prob-bar-segment" style="width: ${prob}%; background: #00D9FF;"></div>
@@ -5889,7 +5918,7 @@
           `;
           labelsHtml = `
             <div class="prob-labels">
-              <span>Pick: ${(p.probability * 100).toFixed(1)}%</span>
+              <span>Pick: ${prob}% <strong style="color: #00D9FF;">@ ${estOdd}</strong></span>
               <span>Conf: ${p.confidence}</span>
             </div>
           `;
