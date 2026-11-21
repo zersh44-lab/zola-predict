@@ -1072,9 +1072,11 @@ class FootballRepository:
             for r in cursor.fetchall()
         ]
 
-        # Overall summary stats across settled matches
-        cursor.execute(
-            """
+        is_date_active = bool(date and str(date).lower() not in ("all", "none", "*", ""))
+        clean_date = str(date).strip() if is_date_active else None
+
+        # Dynamic summary stats across settled matches matching active filters
+        sum_query = """
             SELECT 
                 COUNT(DISTINCT f.id) as total_fixtures,
                 COUNT(p.id) as total_picks,
@@ -1085,15 +1087,39 @@ class FootballRepository:
             JOIN match_results mr ON f.id = mr.fixture_id
             JOIN predictions p ON f.id = p.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
-              AND p.model_name = 'ensemble';
-            """
-        )
+              AND p.model_name = 'ensemble'
+        """
+        sum_params: List[Any] = []
+        if is_date_active:
+            sum_query += " AND DATE(f.utc_date) = ?"
+            sum_params.append(clean_date)
+        elif date_from and date_to:
+            sum_query += " AND DATE(f.utc_date) >= ? AND DATE(f.utc_date) <= ?"
+            sum_params.extend([str(date_from).strip(), str(date_to).strip()])
+
+        if competition_id:
+            sum_query += " AND f.competition_id = ?"
+            sum_params.append(competition_id)
+
+        if market_filter and market_filter != "all":
+            sum_query += " AND p.market = ?"
+            sum_params.append(market_filter)
+
+        if outcome_filter and outcome_filter != "all":
+            if outcome_filter == "WIN":
+                sum_query += " AND (p.settlement_status = 'WIN' OR p.is_correct = 1)"
+            elif outcome_filter == "LOSS":
+                sum_query += " AND (p.settlement_status = 'LOSS' OR p.is_correct = 0)"
+            elif outcome_filter == "PUSH":
+                sum_query += " AND (p.settlement_status = 'PUSH' OR p.status = 'PUSH')"
+
+        cursor.execute(sum_query, sum_params)
         s_row = cursor.fetchone()
         tot_fixtures = s_row["total_fixtures"] if s_row else 0
         tot_picks = s_row["total_picks"] if s_row else 0
-        tot_wins = s_row["wins"] if s_row and s_row["wins"] else 0
-        tot_losses = s_row["losses"] if s_row and s_row["losses"] else 0
-        tot_pushes = s_row["pushes"] if s_row and s_row["pushes"] else 0
+        tot_wins = s_row["wins"] or 0 if s_row else 0
+        tot_losses = s_row["losses"] or 0 if s_row else 0
+        tot_pushes = s_row["pushes"] or 0 if s_row else 0
         decided = tot_wins + tot_losses
         win_rate = round(tot_wins / decided, 4) if decided > 0 else 0.0
 
@@ -1104,47 +1130,11 @@ class FootballRepository:
             "total_losses": tot_losses,
             "total_pushes": tot_pushes,
             "win_rate": win_rate,
-            "is_date_filtered": False,
+            "is_date_filtered": is_date_active,
+            "filtered_date": clean_date,
+            "filtered_market": market_filter if market_filter and market_filter != "all" else None,
+            "filtered_outcome": outcome_filter if outcome_filter and outcome_filter != "all" else None,
         }
-
-        # If filtered by a specific date, compute date-specific KPI summary
-        is_date_active = bool(date and str(date).lower() not in ("all", "none", "*", ""))
-        if is_date_active:
-            clean_date = str(date).strip()
-            cursor.execute(
-                """
-                SELECT 
-                    COUNT(DISTINCT f.id) as total_fixtures,
-                    COUNT(p.id) as total_picks,
-                    SUM(CASE WHEN p.settlement_status = 'WIN' OR p.is_correct = 1 THEN 1 ELSE 0 END) as wins,
-                    SUM(CASE WHEN p.settlement_status = 'LOSS' OR p.is_correct = 0 THEN 1 ELSE 0 END) as losses,
-                    SUM(CASE WHEN p.settlement_status = 'PUSH' OR p.status = 'PUSH' THEN 1 ELSE 0 END) as pushes
-                FROM fixtures f
-                JOIN match_results mr ON f.id = mr.fixture_id
-                JOIN predictions p ON f.id = p.fixture_id
-                WHERE mr.full_time_home_score IS NOT NULL
-                  AND p.model_name = 'ensemble'
-                  AND DATE(f.utc_date) = ?;
-                """,
-                (clean_date,),
-            )
-            d_row = cursor.fetchone()
-            d_fix = d_row["total_fixtures"] if d_row else 0
-            d_picks = d_row["total_picks"] if d_row else 0
-            d_wins = d_row["wins"] or 0 if d_row else 0
-            d_losses = d_row["losses"] or 0 if d_row else 0
-            d_pushes = d_row["pushes"] or 0 if d_row else 0
-            d_dec = d_wins + d_losses
-            summary = {
-                "total_matches": d_fix,
-                "total_picks": d_picks,
-                "total_wins": d_wins,
-                "total_losses": d_losses,
-                "total_pushes": d_pushes,
-                "win_rate": round(d_wins / d_dec, 4) if d_dec > 0 else 0.0,
-                "is_date_filtered": True,
-                "filtered_date": clean_date,
-            }
 
         # Build query for fixtures
         base_query = """

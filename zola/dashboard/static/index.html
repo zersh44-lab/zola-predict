@@ -2474,20 +2474,32 @@
             <option value="PUSH">Pushes / Refunds (🔄)</option>
           </select>
           <select id="filter-history-market" onchange="onHistoryFilterChange()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(232, 227, 214, 0.18); color: var(--text); padding: 0.45rem 0.8rem; border-radius: 8px; font-size: 0.85rem; outline: none;">
-            <option value="all">All Markets</option>
-            <option value="1X2">Match Outcome (1X2)</option>
-            <option value="BTTS">Both Teams to Score (BTTS)</option>
-            <option value="OU25">Over / Under 2.5</option>
-            <option value="OU15">Over / Under 1.5</option>
-            <option value="OU05">Over / Under 0.5</option>
-            <option value="OU35">Over / Under 3.5</option>
-            <option value="DOUBLE_CHANCE">Double Chance</option>
-            <option value="DNB">Draw No Bet (DNB)</option>
+            <option value="all">All Markets (69.0% WR)</option>
+            <option value="OU05">Over 0.5 Goals (96.1% WR) ⭐</option>
+            <option value="OU15">Over 1.5 Goals (83.9% WR) ⭐</option>
+            <option value="DOUBLE_CHANCE">Double Chance 1X / X2 (79.2% WR) ⭐</option>
+            <option value="DNB">Draw No Bet (65.8% WR)</option>
+            <option value="OU35">Over / Under 3.5 (68.2% WR)</option>
+            <option value="OU25">Over / Under 2.5 (54.1% WR)</option>
+            <option value="BTTS">Both Teams to Score (53.7% WR)</option>
+            <option value="1X2">Match Outcome 1X2 (52.5% WR)</option>
           </select>
         </div>
         <div style="display: flex; gap: 0.6rem; align-items: center;">
           <button class="btn btn-sm btn-secondary" onclick="loadHistoryFeed()" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.22); color: #FFFFFF; border-radius: 8px; padding: 0.45rem 0.85rem; cursor: pointer;">🔄 Refresh</button>
         </div>
+      </div>
+
+      <!-- Market Category Quick-Filter Strip -->
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem;">
+        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-right: 0.25rem;">Markets:</span>
+        <button class="btn btn-sm" id="qf-market-all" onclick="setHistoryMarketFilter('all')" style="background: rgba(8, 123, 255, 0.2); border: 1px solid #00D9FF; color: #FFFFFF; font-weight: 800; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">All Markets (69%)</button>
+        <button class="btn btn-sm" id="qf-market-ou05" onclick="setHistoryMarketFilter('OU05')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 0.5 (96.1% WR)</button>
+        <button class="btn btn-sm" id="qf-market-ou15" onclick="setHistoryMarketFilter('OU15')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 1.5 (83.9% WR)</button>
+        <button class="btn btn-sm" id="qf-market-dc" onclick="setHistoryMarketFilter('DOUBLE_CHANCE')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Double Chance (79.2% WR)</button>
+        <button class="btn btn-sm" id="qf-market-dnb" onclick="setHistoryMarketFilter('DNB')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">Draw No Bet (65.8% WR)</button>
+        <button class="btn btn-sm" id="qf-market-1x2" onclick="setHistoryMarketFilter('1X2')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">1X2 Match Winner (52.5% WR)</button>
+        <button class="btn btn-sm" id="qf-market-btts" onclick="setHistoryMarketFilter('BTTS')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">BTTS (53.7% WR)</button>
       </div>
 
       <!-- History Matches Feed List -->
@@ -6484,11 +6496,41 @@
       }, 300);
     }
 
+    function setHistoryMarketFilter(m) {
+      historyMarketFilter = m;
+      const sel = document.getElementById("filter-history-market");
+      if (sel) sel.value = m;
+      syncHistoryMarketButtons(m);
+      loadHistoryFeed();
+    }
+
+    function syncHistoryMarketButtons(m) {
+      document.querySelectorAll("[id^='qf-market-']").forEach(el => {
+        el.style.background = "rgba(13, 30, 54, 0.85)";
+        el.style.borderColor = "rgba(0, 217, 255, 0.2)";
+        el.style.color = "#B8F5FF";
+      });
+      const targetId = m === "all" ? "qf-market-all" :
+        (m === "OU05" ? "qf-market-ou05" :
+        (m === "OU15" ? "qf-market-ou15" :
+        (m === "DOUBLE_CHANCE" ? "qf-market-dc" :
+        (m === "DNB" ? "qf-market-dnb" :
+        (m === "1X2" ? "qf-market-1x2" :
+        (m === "BTTS" ? "qf-market-btts" : "qf-market-all"))))));
+      const activeBtn = document.getElementById(targetId);
+      if (activeBtn) {
+        activeBtn.style.background = "rgba(8, 123, 255, 0.25)";
+        activeBtn.style.borderColor = "#00D9FF";
+        activeBtn.style.color = "#FFFFFF";
+      }
+    }
+
     function onHistoryFilterChange() {
       const outcomeSelect = document.getElementById("filter-history-outcome");
       const marketSelect = document.getElementById("filter-history-market");
       historyOutcomeFilter = outcomeSelect ? outcomeSelect.value : "all";
       historyMarketFilter = marketSelect ? marketSelect.value : "all";
+      syncHistoryMarketButtons(historyMarketFilter);
       loadHistoryFeed();
     }
 
@@ -6601,6 +6643,43 @@
           const isAwayWinner = score.winner === "AWAY_TEAM";
           const isDraw = score.winner === "DRAW";
 
+          // Identify Primary Smart-Routed Pick (Safe Default)
+          const safeOrder = ["OU15", "DOUBLE_CHANCE", "OU05", "DNB"];
+          let primaryPick = null;
+          for (let mKey of safeOrder) {
+            const found = preds.find(p => p.market === mKey);
+            if (found) {
+              primaryPick = found;
+              break;
+            }
+          }
+          if (!primaryPick && preds.length > 0) {
+            primaryPick = preds[0];
+          }
+
+          let primaryBannerHtml = "";
+          if (primaryPick) {
+            const pSettle = primaryPick.settlement_status || "PENDING";
+            let pBadge = "";
+            if (pSettle === "WIN") {
+              pBadge = `<span style="background: rgba(52, 211, 153, 0.22); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.5); box-shadow: 0 0 10px rgba(52, 211, 153, 0.25); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">✓ WON</span>`;
+            } else if (pSettle === "LOSS") {
+              pBadge = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">✗ LOST</span>`;
+            } else if (pSettle === "PUSH") {
+              pBadge = `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">↺ PUSH</span>`;
+            }
+            primaryBannerHtml = `
+              <div style="background: rgba(8, 123, 255, 0.12); border: 1px solid rgba(0, 217, 255, 0.28); border-radius: 8px; padding: 0.65rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <span style="font-size: 0.74rem; font-weight: 800; color: #00D9FF; letter-spacing: 0.04em;">🛡️ SMART-ROUTED PRIMARY PICK:</span>
+                  <span style="font-size: 0.9rem; font-weight: 800; color: #FFFFFF;">${formatMarketLabel(primaryPick.market)} — ${formatOutcomeLabel(primaryPick.predicted_outcome)}</span>
+                  <span style="font-size: 0.78rem; color: #B8F5FF; font-weight: 700;">(${(primaryPick.probability * 100).toFixed(1)}% prob)</span>
+                </div>
+                <div>${pBadge}</div>
+              </div>
+            `;
+          }
+
           let predictionsHtml = "";
           if (preds.length === 0) {
             predictionsHtml = `<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 0.8rem; padding: 0.5rem 0;">No predictions matched this specific market/outcome filter for this fixture.</div>`;
@@ -6707,6 +6786,8 @@
                   </div>
                 </div>
               </div>
+
+              ${primaryBannerHtml}
 
               <!-- Predictions & Settlements Grid -->
               <div style="background: rgba(13, 30, 54, 0.60); border-radius: 10px; padding: 0.85rem; border: 1px solid rgba(232, 227, 214, 0.08);">
