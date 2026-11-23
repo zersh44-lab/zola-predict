@@ -158,6 +158,131 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         finally:
             conn.close()
 
+    def _handle_cron_sync(self, settings: Settings, db_path: str, body: Optional[Dict[str, Any]] = None) -> None:
+        """Handle scheduled daily fixture synchronization (Vercel Cron & Manual).
+        
+        Fetches today and the next 7 days of matches from the configured football API provider,
+        validates fixture identity, safely upserts into SQLite without duplicates, updates
+        postponed/rescheduled fixtures, triggers pre-match prediction generation, and logs
+        execution metadata.
+        """
+        import os
+        import time
+        from datetime import datetime, timezone
+        from zola.validation.datetime import format_kickoff_ethiopia
+        from zola.client.api_sports import ApiSportsClient
+        from zola.client.football_data import FootballDataOrgClient
+        from zola.client.cache import RequestCache
+        from zola.client.rate_limiter import RateLimiter
+        from zola.services.collector import FootballCollectorService
+        from zola.prediction.engine import PredictionEngine
+
+        parsed_url = urllib.parse.urlparse(self.path)
+        query = urllib.parse.parse_qs(parsed_url.query)
+
+        # 1. Security Check: Validate CRON_SECRET if configured
+        cron_secret = getattr(settings, "cron_secret", None) or os.getenv("CRON_SECRET", "").strip() or None
+        auth_hdr = self.headers.get("Authorization", "").strip()
+        query_secret = query.get("cron_secret", [None])[0] or query.get("secret", [None])[0]
+
+        if cron_secret:
+            expected_bearer = f"Bearer {cron_secret}"
+            if auth_hdr != expected_bearer and query_secret != cron_secret:
+                logger.warning("Unauthorized cron sync trigger attempt from %s", getattr(self, "client_address", "unknown"))
+                self._send_json({"error": "Unauthorized: Invalid or missing CRON_SECRET"}, 401)
+                return
+
+        # 2. Extract options
+        payload = body or {}
+        days_ahead_raw = payload.get("days_ahead") or query.get("days_ahead", ["7"])[0]
+        try:
+            days_ahead = max(1, min(int(days_ahead_raw), 14))
+        except ValueError:
+            days_ahead = 7
+
+        competition = str(payload.get("competition") or query.get("competition", ["all"])[0]).strip()
+        start_date = payload.get("start_date") or query.get("start_date", [None])[0]
+        if start_date:
+            start_date = str(start_date).strip()
+
+        t0 = time.time()
+        start_dt = datetime.now(timezone.utc)
+        conn = get_connection(db_path)
+        try:
+            repo = FootballRepository(conn)
+            cache = RequestCache(conn)
+            limiter = RateLimiter(max_rpm=10)
+
+            fb_key = getattr(settings, "football_data_api_key", None)
+            if not fb_key and getattr(settings, "football_api_provider", "") == "football-data":
+                fb_key = settings.football_api_key
+            fb_client = FootballDataOrgClient(api_key=fb_key, cache=cache, rate_limiter=limiter) if fb_key else None
+
+            api_sports_key = settings.football_api_key if getattr(settings, "football_api_provider", "") == "api-football" else None
+            api_client = ApiSportsClient(api_key=api_sports_key, cache=cache, rate_limiter=limiter) if api_sports_key else None
+
+            primary_client = fb_client or api_client or ApiSportsClient(api_key=settings.football_api_key, cache=cache, rate_limiter=limiter)
+            collector = FootballCollectorService(client=primary_client, repository=repo)
+
+            # Sync rolling window: today through today + days_ahead (status=None updates all statuses)
+            sync_res = collector.sync_upcoming_window(
+                competition_code_or_id=competition,
+                days_ahead=days_ahead,
+                football_data_client=fb_client,
+                secondary_client=api_client,
+                start_date=start_date,
+                status=None,
+            )
+
+            # Auto-generate predictions for newly synced upcoming matches
+            pred_count = 0
+            try:
+                engine = PredictionEngine(repo)
+                pred_count = engine.predict_upcoming_fixtures(days_ahead=max(days_ahead, 7), limit=500)
+            except Exception as pe:
+                logger.warning("Prediction generation notice during cron sync: %s", pe)
+
+            elapsed_ms = int((time.time() - t0) * 1000)
+            now_utc_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            ethiopia_str = format_kickoff_ethiopia(start_dt)
+
+            sync_metadata = {
+                "timestamp": now_utc_str,
+                "ethiopia_time": ethiopia_str,
+                "status": "SUCCESS",
+                "schedule": "0 2 * * * (05:00 Ethiopia Time / UTC+3)",
+                "provider": primary_client.provider_name,
+                "days_ahead": days_ahead,
+                "start_date": sync_res.get("start_date"),
+                "end_date": sync_res.get("end_date"),
+                "dates_synced": sync_res.get("dates", []),
+                "fixtures_synced": sync_res.get("fixtures_synced", 0),
+                "predictions_generated": pred_count,
+                "elapsed_ms": elapsed_ms,
+            }
+            repo.save_setting("last_fixture_sync", sync_metadata)
+
+            self._send_json({
+                "success": True,
+                "cron": True,
+                "sync": sync_metadata,
+            })
+        except Exception as e:
+            logger.error("Error executing daily cron sync: %s", e, exc_info=True)
+            err_meta = {
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "status": "ERROR",
+                "error": str(e),
+                "schedule": "0 2 * * * (05:00 Ethiopia Time / UTC+3)",
+            }
+            try:
+                repo.save_setting("last_fixture_sync", err_meta)
+            except Exception:
+                pass
+            self._send_json({"success": False, "error": str(e)}, 500)
+        finally:
+            conn.close()
+
     def do_OPTIONS(self) -> None:
         """Handle pre-flight CORS requests."""
         self.send_response(204)
@@ -249,6 +374,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 stats = repo.get_database_stats()
                 recent_logs = [log.to_dict() for log in repo.get_recent_api_logs(limit=5)]
                 cred_status = settings.get_credentials_status()
+                last_sync = repo.get_setting("last_fixture_sync")
 
                 self._send_json({
                     "status": "online",
@@ -262,9 +388,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     "stats": stats,
                     "credentials": cred_status,
                     "recent_logs": recent_logs,
+                    "last_sync": last_sync,
+                    "cron_schedule": "0 2 * * * (05:00 Ethiopia Time / UTC+3)",
                 })
             finally:
                 conn.close()
+            return
+
+        # 2a. Scheduled Daily Fixture Synchronization (Vercel Cron & Manual GET)
+        if path in ("/api/cron/sync", "/api/cron/fixtures"):
+            self._handle_cron_sync(settings, db_path)
             return
 
         # 3. List Competitions
@@ -1016,7 +1149,12 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             self._handle_history_sync(settings, db_path)
             return
 
-        # 0a. Run Walk-Forward Historical Backtest
+        # 0a. Scheduled Daily Fixture Synchronization (POST Trigger)
+        if path in ("/api/cron/sync", "/api/cron/fixtures"):
+            self._handle_cron_sync(settings, db_path, body=body)
+            return
+
+        # 0b. Run Walk-Forward Historical Backtest
         if path == "/api/backtest":
             limit = int(body.get("limit", 30))
             min_hist = int(body.get("min_history", 2))

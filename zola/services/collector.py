@@ -274,8 +274,14 @@ class FootballCollectorService:
         football_data_client: Optional[BaseFootballClient] = None,
         secondary_client: Optional[BaseFootballClient] = None,
         start_date: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Fetch and persist scheduled fixtures over a rolling multi-day window (7-10 days ahead)."""
+        """Fetch and persist fixtures over a rolling multi-day window (today + 7 days).
+        
+        When status is None, fetches all fixture statuses so rescheduled and postponed
+        matches are updated accurately in the database.
+        """
+        import os
         import time
         from datetime import datetime, timezone, timedelta
         from zola.client.football_data import FootballDataOrgClient
@@ -333,15 +339,15 @@ class FootballCollectorService:
                 try:
                     res = self.sync_fixtures(
                         competition_code_or_id=competition_code_or_id,
-                        status="SCHEDULED",
+                        status=status,
                         date=cur_date,
                     )
                     count = res.get("fixtures_synced", 0)
                     total_synced += count
                     cached = res.get("cache_hit", False)
                     logger.info("API-Football date %s: %d fixtures synced (cache=%s)", cur_date, count, cached)
-                    # Respect API-Football 10 RPM free-tier limit with 6.5s pacing between live calls
-                    if not cached and d < min(days_ahead, 7):
+                    # Respect API-Football 10 RPM free-tier limit with 6.5s pacing between live calls outside serverless/tests
+                    if not cached and d < min(days_ahead, 7) and not os.environ.get("VERCEL") and not os.environ.get("PYTEST_CURRENT_TEST"):
                         time.sleep(6.5)
                 except Exception as e:
                     logger.warning("API-Football sync date %s notice: %s", cur_date, e)
@@ -352,16 +358,18 @@ class FootballCollectorService:
                 try:
                     res = self.sync_fixtures(
                         competition_code_or_id=competition_code_or_id,
-                        status="SCHEDULED",
+                        status=status,
                         date=cur_date,
                     )
                     total_synced += res.get("fixtures_synced", 0)
                 except Exception as e:
                     logger.warning("Error syncing date %s: %s", cur_date, e)
 
-
+        end_date_str = (base_dt + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
         return {
             "competition": competition_code_or_id or "all",
+            "start_date": today_str,
+            "end_date": end_date_str,
             "days_ahead": days_ahead,
             "dates": dates_synced,
             "fixtures_synced": total_synced,

@@ -204,6 +204,15 @@ class FootballRepository:
         )
         existing = cursor.fetchone()
         if existing:
+            # Preserve quarantined records unconditionally
+            if existing["status"] == "INVALID_FIXTURE_IDENTITY":
+                logger.warning(
+                    "Skipping update for quarantined fixture %s:%s (status=INVALID_FIXTURE_IDENTITY).",
+                    fixture.provider,
+                    fixture.external_id,
+                )
+                return int(existing["id"])
+
             # If incoming provider fixture has conflicting team IDs, quarantine existing and fail closed
             if (
                 existing["home_team_id"] != fixture.home_team_id
@@ -2344,6 +2353,36 @@ class FootballRepository:
         )
         self.conn.commit()
         return weights
+
+    def get_setting(self, key: str) -> Optional[Dict[str, Any]]:
+        """Retrieve JSON setting by key from prioritization_settings."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT value_json, updated_at FROM prioritization_settings WHERE key = ? LIMIT 1;", (key,))
+        row = cursor.fetchone()
+        if row and row["value_json"]:
+            try:
+                data = json.loads(row["value_json"])
+                if isinstance(data, dict):
+                    data["_updated_at"] = str(row["updated_at"])
+                return data
+            except Exception:
+                return None
+        return None
+
+    def save_setting(self, key: str, value: Dict[str, Any]) -> None:
+        """Persist JSON setting by key into prioritization_settings."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO prioritization_settings (key, value_json, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET
+                value_json = excluded.value_json,
+                updated_at = CURRENT_TIMESTAMP;
+            """,
+            (key, json.dumps(value)),
+        )
+        self.conn.commit()
 
     # ---------------------------------------------------------
     # Telegram Recipients Management

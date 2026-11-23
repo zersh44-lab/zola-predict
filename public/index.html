@@ -2059,6 +2059,32 @@
 
             </div>
 
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Cron Secret:</span>
+
+              <span id="cred-cron-secret" class="badge">Checking...</span>
+
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border); margin: 0.4rem 0;">
+
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Daily Sync Schedule:</span>
+
+              <span style="color: #38bdf8; font-weight: 600;">05:00 EAT (02:00 UTC)</span>
+
+            </div>
+
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Last Sync:</span>
+
+              <span id="cron-last-sync" style="color: var(--text-main); font-weight: 500;">-</span>
+
+            </div>
+
             <hr style="border: 0; border-top: 1px solid var(--border); margin: 0.4rem 0;">
 
             <div style="display: flex; justify-content: space-between;">
@@ -3547,6 +3573,18 @@
         setBadge("cred-telegram", data.credentials.TELEGRAM_BOT_TOKEN);
 
         setBadge("cred-chat-id", data.credentials.TELEGRAM_CHAT_ID);
+
+        setBadge("cred-cron-secret", data.credentials.CRON_SECRET || 'MISSING');
+
+        if (data.last_sync && data.last_sync.timestamp) {
+          const syncEl = document.getElementById("cron-last-sync");
+          if (syncEl) {
+            const timeStr = data.last_sync.ethiopia_time || data.last_sync.timestamp;
+            const cnt = data.last_sync.fixtures_synced !== undefined ? data.last_sync.fixtures_synced : 0;
+            syncEl.innerText = `${timeStr} (${cnt} sync)`;
+            syncEl.title = `Status: ${data.last_sync.status}, Provider: ${data.last_sync.provider || 'default'}`;
+          }
+        }
 
 
 

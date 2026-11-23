@@ -24,6 +24,7 @@ class Settings:
     gemini_api_key: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    cron_secret: Optional[str] = None
 
     # Alternate AI Provider Keys
     groq_api_key: Optional[str] = None
@@ -48,6 +49,7 @@ class Settings:
             f"gemini_api_key={'***PRESENT***' if self.gemini_api_key else 'None'}, "
             f"telegram_bot_token={'***PRESENT***' if self.telegram_bot_token else 'None'}, "
             f"telegram_chat_id={'***PRESENT***' if self.telegram_chat_id else 'None'}, "
+            f"cron_secret={'***PRESENT***' if self.cron_secret else 'None'}, "
             f"groq_api_key={'***PRESENT***' if self.groq_api_key else 'None'}, "
             f"openrouter_api_key={'***PRESENT***' if self.openrouter_api_key else 'None'}, "
             f"ollama_base_url='{self.ollama_base_url}', "
@@ -75,6 +77,7 @@ class Settings:
             "TELEGRAM_CHAT_ID": "PRESENT" if bool(self.telegram_chat_id and self.telegram_chat_id.strip()) else "MISSING",
             "GROQ_API_KEY": "PRESENT" if bool(self.groq_api_key and self.groq_api_key.strip()) else "MISSING",
             "OPENROUTER_API_KEY": "PRESENT" if bool(self.openrouter_api_key and self.openrouter_api_key.strip()) else "MISSING",
+            "CRON_SECRET": "PRESENT" if bool(self.cron_secret and self.cron_secret.strip()) else "MISSING",
         }
 
 
@@ -98,6 +101,7 @@ def load_settings(env_file: Optional[Path | str] = None) -> Settings:
     raw_gemini_key = os.getenv("GEMINI_API_KEY", "").strip() or None
     raw_telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None
     raw_telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip() or None
+    raw_cron_secret = os.getenv("CRON_SECRET", "").strip() or None
     raw_groq_key = os.getenv("GROQ_API_KEY", "").strip() or None
     raw_openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip() or None
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
@@ -127,6 +131,7 @@ def load_settings(env_file: Optional[Path | str] = None) -> Settings:
         gemini_api_key=raw_gemini_key,
         telegram_bot_token=raw_telegram_token,
         telegram_chat_id=raw_telegram_chat_id,
+        cron_secret=raw_cron_secret,
         groq_api_key=raw_groq_key,
         openrouter_api_key=raw_openrouter_key,
         ollama_base_url=ollama_url,

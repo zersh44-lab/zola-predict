@@ -2059,6 +2059,32 @@
 
             </div>
 
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Cron Secret:</span>
+
+              <span id="cred-cron-secret" class="badge">Checking...</span>
+
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border); margin: 0.4rem 0;">
+
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Daily Sync Schedule:</span>
+
+              <span style="color: #38bdf8; font-weight: 600;">05:00 EAT (02:00 UTC)</span>
+
+            </div>
+
+            <div style="display: flex; justify-content: space-between;">
+
+              <span style="color: var(--text-muted);">Last Sync:</span>
+
+              <span id="cron-last-sync" style="color: var(--text-main); font-weight: 500;">-</span>
+
+            </div>
+
             <hr style="border: 0; border-top: 1px solid var(--border); margin: 0.4rem 0;">
 
             <div style="display: flex; justify-content: space-between;">
@@ -3548,6 +3574,18 @@
 
         setBadge("cred-chat-id", data.credentials.TELEGRAM_CHAT_ID);
 
+        setBadge("cred-cron-secret", data.credentials.CRON_SECRET || 'MISSING');
+
+        if (data.last_sync && data.last_sync.timestamp) {
+          const syncEl = document.getElementById("cron-last-sync");
+          if (syncEl) {
+            const timeStr = data.last_sync.ethiopia_time || data.last_sync.timestamp;
+            const cnt = data.last_sync.fixtures_synced !== undefined ? data.last_sync.fixtures_synced : 0;
+            syncEl.innerText = `${timeStr} (${cnt} sync)`;
+            syncEl.title = `Status: ${data.last_sync.status}, Provider: ${data.last_sync.provider || 'default'}`;
+          }
+        }
+
 
 
         // Header badges
@@ -4538,33 +4576,24 @@
 
 
     function renderMatchScoreOrTime(f) {
+      const h = (f.home_score !== undefined && f.home_score !== null) ? f.home_score : ((f.full_time_home_score !== undefined && f.full_time_home_score !== null) ? f.full_time_home_score : null);
+      const a = (f.away_score !== undefined && f.away_score !== null) ? f.away_score : ((f.full_time_away_score !== undefined && f.full_time_away_score !== null) ? f.full_time_away_score : null);
 
       if (f.status === "LIVE") {
-
         return `<div class="match-score-badge" style="background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #ef4444;">
-
-          ${f.home_score !== null ? f.home_score : 0} - ${f.away_score !== null ? f.away_score : 0}
-
+          ${h !== null ? h : 0} - ${a !== null ? a : 0}
         </div>`;
-
       }
 
       if (f.status === "FINISHED") {
-
         return `<div class="match-score-badge">
-
-          ${f.home_score !== null ? f.home_score : '-'} - ${f.away_score !== null ? f.away_score : '-'}
-
+          ${h !== null ? h : '-'} - ${a !== null ? a : '-'}
         </div>`;
-
       }
 
       return `<div class="match-score-badge" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem;">
-
         vs
-
       </div>`;
-
     }
 
 
@@ -5105,7 +5134,7 @@
 
           <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem;">
             ${predBadge}
-            <button class="btn btn-sm btn-row-predict" onclick="openPredictionModal(${f.id})">Predict</button>
+            <button class="btn btn-sm btn-row-predict" onclick="openPredictionModal(${f.id})">${(f.status === 'FINISHED' || f.status === 'FT') ? (f.has_prediction ? 'Analysis' : 'Match Intel') : 'Predict'}</button>
           </div>
         </div>
       `;
@@ -5405,7 +5434,9 @@
         const tr = document.createElement("tr");
 
         const time = formatKickoff(f.utc_date);
-        const score = f.home_score !== null ? `<strong>${f.home_score} - ${f.away_score}</strong>` : `<span style="color: var(--text-muted);">- : -</span>`;
+        const h = (f.home_score !== undefined && f.home_score !== null) ? f.home_score : ((f.full_time_home_score !== undefined && f.full_time_home_score !== null) ? f.full_time_home_score : null);
+        const a = (f.away_score !== undefined && f.away_score !== null) ? f.away_score : ((f.full_time_away_score !== undefined && f.full_time_away_score !== null) ? f.full_time_away_score : null);
+        const score = (h !== null && a !== null) ? `<strong>${h} - ${a}</strong>` : `<span style="color: var(--text-muted);">- : -</span>`;
         const statusBadge = f.status === "FINISHED" ? `<span class="badge info">FINISHED</span>` : f.status === "LIVE" ? `<span class="badge danger"><span class="pulsing-live-dot"></span> LIVE</span>` : `<span class="badge success">SCHEDULED</span>`;
 
         const homeName = f.home_team_name || "Home Team";
@@ -5444,7 +5475,7 @@
           </td>
           <td>${statusBadge}</td>
           <td>
-            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">Predict</button>
+            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">${(f.status === 'FINISHED' || f.status === 'FT') ? 'Intel' : 'Predict'}</button>
           </td>
         `;
 
@@ -5504,8 +5535,27 @@
         const data = await res.json();
 
         if (data.error) {
-          alert("Error: " + data.error);
-          closeModal();
+          const compEl = document.getElementById("modal-hero-comp");
+          if (compEl) compEl.innerText = "PREDICTION BLOCKED";
+          const pickEl = document.getElementById("modal-consensus-pick");
+          if (pickEl) pickEl.innerText = "PREDICTION BLOCKED";
+          const reasonEl = document.getElementById("modal-verdict-reason");
+          if (reasonEl) reasonEl.innerText = data.details || data.error;
+
+          const hcSection = document.getElementById("modal-high-confidence-section");
+          if (hcSection) {
+            hcSection.innerHTML = `
+              <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <span style="font-size: 1.35rem;">🚫</span>
+                  <span style="font-size: 1.05rem; font-weight: 800; color: #ef4444;">${safeEscape(data.error)}</span>
+                </div>
+                <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5;">
+                  ${safeEscape(data.details || "This fixture is quarantined or ineligible for predictions.")}
+                </div>
+              </div>
+            `;
+          }
           return;
         }
 
