@@ -371,6 +371,7 @@ class FootballCollectorService:
         days_ahead: int = 7,
         football_data_client: Optional[BaseFootballClient] = None,
         secondary_client: Optional[BaseFootballClient] = None,
+        start_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Fetch and persist scheduled fixtures over a rolling multi-day window (7-10 days ahead)."""
         import time
@@ -378,7 +379,8 @@ class FootballCollectorService:
         from zola.client.football_data import FootballDataOrgClient
 
         now = datetime.now(timezone.utc)
-        today_str = now.strftime("%Y-%m-%d")
+        base_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) if start_date else now
+        today_str = base_dt.strftime("%Y-%m-%d")
         total_synced = 0
         dates_synced = []
 
@@ -389,7 +391,7 @@ class FootballCollectorService:
 
         if fb_client is not None:
             tier_one = ["PL", "PD", "SA", "BL1", "FL1", "DED", "PPL", "ELC", "BSA", "CL", "EC", "WC"]
-            end_span = (now + timedelta(days=min(days_ahead, 9))).strftime("%Y-%m-%d")
+            end_span = (base_dt + timedelta(days=min(days_ahead, 9))).strftime("%Y-%m-%d")
             try:
                 logger.info("Initiating primary bulk sync via football-data.org (%s to %s)", today_str, end_span)
                 standard_fixtures, from_cache, elapsed_ms = fb_client.get_matches_window(
@@ -424,7 +426,7 @@ class FootballCollectorService:
         api_client = secondary_client or (self.client if getattr(self.client, "provider_name", "") == "api-football" else None)
         if api_client is not None:
             for d in range(min(days_ahead + 1, 8)):
-                cur_date = (now + timedelta(days=d)).strftime("%Y-%m-%d")
+                cur_date = (base_dt + timedelta(days=d)).strftime("%Y-%m-%d")
                 dates_synced.append(cur_date)
                 try:
                     res = self.sync_fixtures(
@@ -443,7 +445,7 @@ class FootballCollectorService:
                     logger.warning("API-Football sync date %s notice: %s", cur_date, e)
         else:
             for d in range(days_ahead + 1):
-                cur_date = (now + timedelta(days=d)).strftime("%Y-%m-%d")
+                cur_date = (base_dt + timedelta(days=d)).strftime("%Y-%m-%d")
                 dates_synced.append(cur_date)
                 try:
                     res = self.sync_fixtures(

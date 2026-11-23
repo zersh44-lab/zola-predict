@@ -497,10 +497,29 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     "away_win_rate_pct": a_stats.get("win_rate_pct"),
                 }
 
+                # High-Confidence Prediction System evaluation
+                high_confidence_report = None
+                ens = results.get("ensemble", {})
+                for m_pick in ens.values():
+                    if hasattr(m_pick, "features") and m_pick.features and "high_confidence_report" in m_pick.features:
+                        high_confidence_report = m_pick.features["high_confidence_report"]
+                        break
+                if not high_confidence_report:
+                    from zola.prediction.high_confidence import HighConfidenceSelector
+                    high_confidence_report = HighConfidenceSelector.evaluate_fixture(
+                        fixture=fixture,
+                        ensemble_predictions=ens,
+                        comparison_stats=comparison_stats,
+                        home_form=h_stats.get("form", []),
+                        away_form=a_stats.get("form", []),
+                        h2h_summary=h2h_summary,
+                    ).to_dict()
+
                 self._send_json({
                     "fixture": fixture,
                     "predictions": serialized,
                     "smart_routing": smart_routing,
+                    "high_confidence_report": high_confidence_report,
                     "home_form": h_stats.get("form", []),
                     "away_form": a_stats.get("form", []),
                     "h2h": h2h_summary,

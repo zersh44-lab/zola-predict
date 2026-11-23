@@ -110,7 +110,64 @@ class PredictionEngine:
                     bookmaker_odds=mkt_odds,
                 )
 
-        # 6. Persist to SQLite if requested
+        # 6. High-Confidence Prediction System (Rules: max 3 picks, skip threshold, evidence-based)
+        from zola.prediction.high_confidence import HighConfidenceSelector
+        poi_feat = all_results.get("poisson", {}).get("1X2", {}).features or {}
+        comp_stats = {
+            "home_xg": poi_feat.get("lambda_home"),
+            "away_xg": poi_feat.get("lambda_away"),
+        }
+        h_form = []
+        for m in (home_matches or [])[:5]:
+            w = m.get("winner")
+            is_h = m.get("is_home")
+            if w == "DRAW":
+                h_form.append("D")
+            elif (is_h == 1 and w == "HOME_TEAM") or (is_h == 0 and w == "AWAY_TEAM"):
+                h_form.append("W")
+            else:
+                h_form.append("L")
+
+        a_form = []
+        for m in (away_matches or [])[:5]:
+            w = m.get("winner")
+            is_h = m.get("is_home")
+            if w == "DRAW":
+                a_form.append("D")
+            elif (is_h == 1 and w == "HOME_TEAM") or (is_h == 0 and w == "AWAY_TEAM"):
+                a_form.append("W")
+            else:
+                a_form.append("L")
+
+        h2h_sum = {"total": len(h2h_matches or []), "home_wins": 0, "draws": 0, "away_wins": 0}
+        for m in (h2h_matches or []):
+            w = m.get("winner")
+            m_hid = m.get("home_team_id")
+            if w == "DRAW":
+                h2h_sum["draws"] += 1
+            elif (w == "HOME_TEAM" and m_hid == home_team_id) or (w == "AWAY_TEAM" and m_hid != home_team_id):
+                h2h_sum["home_wins"] += 1
+            elif (w == "AWAY_TEAM" and m_hid == home_team_id) or (w == "HOME_TEAM" and m_hid != home_team_id):
+                h2h_sum["away_wins"] += 1
+
+        high_conf_report = HighConfidenceSelector.evaluate_fixture(
+            fixture=fixture,
+            ensemble_predictions=ensemble_preds,
+            comparison_stats=comp_stats,
+            home_form=h_form,
+            away_form=a_form,
+            h2h_summary=h2h_sum,
+        )
+
+        high_conf_picks_map = {p.market: p for p in high_conf_report.picks}
+        for m_name, p in ensemble_preds.items():
+            if not p.features:
+                p.features = {}
+            p.features["high_confidence_report"] = high_conf_report.to_dict()
+            if m_name in high_conf_picks_map:
+                p.features["high_confidence_pick"] = high_conf_picks_map[m_name].to_dict()
+
+        # 7. Persist to SQLite if requested
         if persist:
             for model_name, markets in all_results.items():
                 for market, p in markets.items():
@@ -118,6 +175,11 @@ class PredictionEngine:
                     feat_dict = dict(p.features or {})
                     if p.value_analysis:
                         feat_dict["value_analysis"] = p.value_analysis
+                    if model_name == "ensemble":
+                        if market in high_conf_picks_map:
+                            feat_dict["high_confidence_selection"] = high_conf_picks_map[market].to_dict()
+                        elif high_conf_report.is_skipped:
+                            feat_dict["high_confidence_selection"] = {"is_skipped": True, "skip_reason": high_conf_report.skip_reason}
                     features_str = json.dumps(feat_dict)
                     odds_str = json.dumps(odds_data.get(market)) if odds_data and market in odds_data else None
 

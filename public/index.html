@@ -3070,6 +3070,9 @@
       <!-- 2. Modal Body -->
       <div class="matchday-modal-body">
 
+        <!-- HIGH-CONFIDENCE PREDICTION SYSTEM SECTION (Max 3 Picks or SKIP Alert) -->
+        <div id="modal-high-confidence-section" style="margin-bottom: 1.15rem;"></div>
+
         <!-- AI Smart-Routed Safe Default (Verdict Card) -->
         <div id="modal-verdict-card" class="matchday-verdict-card">
           <div class="verdict-header">
@@ -3141,11 +3144,16 @@
           </div>
         </div>
 
-        <!-- 6 Markets Breakdown Grid -->
-        <div>
+        <!-- 6 Markets Breakdown Grid (Collapsible) -->
+        <div style="margin-top: 1.15rem;">
           <div style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem; color: #FFFFFF; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-            <span>📊 ZolaPredict Market Analysis (6 Primary Markets)</span>
-            <span style="font-size: 0.75rem; color: #B8F5FF; opacity: 0.8;">Ensemble & Volatility Calibrated</span>
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+              <span>📊 All Analyzed Markets (6 Primary Markets)</span>
+              <span style="font-size: 0.72rem; color: #00D9FF; background: rgba(0, 217, 255, 0.12); border: 1px solid rgba(0, 217, 255, 0.3); border-radius: 4px; padding: 0.1rem 0.45rem;">Full Model Matrix</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-toggle-markets-view" onclick="toggleMarketsGridView()" style="font-size: 0.74rem; border-color: rgba(0, 217, 255, 0.35); color: #B8F5FF;">
+              👁️ Collapse / Expand Markets
+            </button>
           </div>
           <div class="matchday-markets-grid" id="modal-markets-grid">
             <!-- Dynamically populated -->
@@ -5683,6 +5691,101 @@
           verdictEdge.title = "Target odds to take for positive Expected Value (+EV)";
         }
 
+        // 2b. High-Confidence Prediction System (Rules: max 3 picks, skip threshold, evidence-based)
+        const hcReport = data.high_confidence_report;
+        const hcSection = document.getElementById("modal-high-confidence-section");
+        const verdictCard = document.getElementById("modal-verdict-card");
+        if (hcSection) {
+          if (hcReport && hcReport.is_skipped) {
+            hcSection.innerHTML = `
+              <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid rgba(245, 158, 11, 0.75); border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.35); margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.35rem;">⚠️</span>
+                    <span style="font-size: 1.02rem; font-weight: 800; color: #f59e0b; letter-spacing: 0.05em; text-transform: uppercase;">
+                      NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH
+                    </span>
+                  </div>
+                  <span class="badge danger" style="background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; color: #ff8a8a; font-weight: 800; font-size: 0.75rem; letter-spacing: 0.05em; padding: 0.25rem 0.6rem;">
+                    STATUS: SKIP / NO BET
+                  </span>
+                </div>
+                <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5; margin-bottom: 0.75rem;">
+                  <strong style="color: #00D9FF;">Analytical Reason:</strong> ${safeEscape(hcReport.skip_rationale || "Statistical metrics and model divergence indicate high market volatility without sufficient probability edge.")}
+                </div>
+                <div style="background: rgba(7, 20, 38, 0.75); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: #B8F5FF;">
+                  🛡️ <strong>Main Principle (Quality Over Quantity):</strong> The system strictly suppresses predictions when empirical confidence thresholds are not met. Skipping volatile or coin-flip fixtures preserves accuracy and eliminates avoidable losses.
+                </div>
+              </div>
+            `;
+            if (verdictCard) verdictCard.style.display = "none";
+          } else if (hcReport && hcReport.picks && hcReport.picks.length > 0) {
+            const picksHtml = hcReport.picks.map(p => `
+              <div class="high-confidence-pick-card" style="background: #071426; border: 1px solid rgba(8, 123, 255, 0.45); border-left: 4px solid #00D9FF; border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: 0.65rem; box-shadow: 0 4px 15px rgba(0,0,0,0.25);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.35rem;">
+                  <span style="font-size: 0.74rem; font-weight: 800; color: #00D9FF; letter-spacing: 0.06em; text-transform: uppercase;">
+                    ⭐ SELECTION #${p.rank} • ${safeEscape(p.market_label)}
+                  </span>
+                  <span class="badge ${p.confidence === 'HIGH' ? 'success' : 'warning'}" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; letter-spacing: 0.04em;">
+                    ${p.confidence} CONFIDENCE
+                  </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.4rem;">
+                  <div style="font-size: 1.12rem; font-weight: 800; color: #FFFFFF;">
+                    ${safeEscape(p.outcome_display)}
+                  </div>
+                  <div style="display: flex; gap: 0.4rem; align-items: center;">
+                    <span style="background: rgba(0, 217, 255, 0.15); border: 1px solid rgba(0, 217, 255, 0.4); color: #00D9FF; font-weight: 800; font-size: 0.8rem; padding: 0.2rem 0.55rem; border-radius: 5px;">
+                      ${p.probability_pct}
+                    </span>
+                    <span style="background: rgba(8, 123, 255, 0.15); border: 1px solid rgba(8, 123, 255, 0.4); color: #B8F5FF; font-weight: 700; font-size: 0.76rem; padding: 0.2rem 0.5rem; border-radius: 5px;">
+                      @ ${p.estimated_odd} (Fair: @ ${p.fair_odd})
+                    </span>
+                  </div>
+                </div>
+
+                <div style="font-size: 0.82rem; color: #E2E8F0; line-height: 1.45; background: rgba(13, 30, 54, 0.65); padding: 0.55rem 0.75rem; border-radius: 6px;">
+                  <strong style="color: #00D9FF;">Why Selected:</strong> ${safeEscape(p.rationale)}
+                </div>
+
+                <div style="font-size: 0.76rem; color: #cbd5e1; line-height: 1.4; border-top: 1px dashed rgba(8, 123, 255, 0.25); padding-top: 0.45rem;">
+                  <strong style="color: #f59e0b;">⚠️ Important Risks & Missing Info:</strong> ${safeEscape(p.risks)}
+                </div>
+              </div>
+            `).join("");
+
+            hcSection.innerHTML = `
+              <div style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.45); border-radius: 12px; padding: 1.15rem; box-shadow: 0 4px 25px rgba(0, 217, 255, 0.1); margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.95rem; border-bottom: 1px solid rgba(0, 217, 255, 0.25); padding-bottom: 0.65rem;">
+                  <div style="display: flex; align-items: center; gap: 0.55rem;">
+                    <span style="font-size: 1.25rem;">🎯</span>
+                    <div>
+                      <div style="font-size: 0.98rem; font-weight: 800; color: #00D9FF; letter-spacing: 0.05em; text-transform: uppercase;">
+                        HIGH-CONFIDENCE PREDICTION SYSTEM
+                      </div>
+                      <div style="font-size: 0.74rem; color: #B8F5FF; opacity: 0.85;">
+                        Quality Over Quantity • Strictly Limited to Top ${hcReport.total_picks} Option${hcReport.total_picks > 1 ? 's' : ''} (Max 3)
+                      </div>
+                    </div>
+                  </div>
+                  <span class="badge success" style="background: rgba(0, 217, 255, 0.18); border: 1px solid #00D9FF; color: #00D9FF; font-weight: 800; font-size: 0.74rem; letter-spacing: 0.04em;">
+                    ${hcReport.total_picks} OF MAX 3 SELECTED
+                  </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 0.9rem;">
+                  ${picksHtml}
+                </div>
+              </div>
+            `;
+            if (verdictCard) verdictCard.style.display = "block";
+          } else {
+            hcSection.innerHTML = "";
+            if (verdictCard) verdictCard.style.display = "block";
+          }
+        }
+
         // 3. Pre-Match Context Row (Form & H2H)
         const hForm = (data.home_form && data.home_form.length) ? data.home_form : ["-", "-", "-", "-", "-"];
         const aForm = (data.away_form && data.away_form.length) ? data.away_form : ["-", "-", "-", "-", "-"];
@@ -5722,7 +5825,7 @@
         }
 
         // 4. Render 6 Primary Markets
-        renderMatchdayMarkets(ens, smartRouting);
+        renderMatchdayMarkets(ens, smartRouting, hcReport);
 
         // 5. Render Season Stats Comparison Bars
         renderMatchdayStatsComparison(data.comparison_stats, homeName, awayName);
@@ -5752,7 +5855,20 @@
       }
     }
 
-    function renderMatchdayMarkets(ensemble, smartRouting) {
+    function toggleMarketsGridView() {
+      const grid = document.getElementById("modal-markets-grid");
+      const btn = document.getElementById("btn-toggle-markets-view");
+      if (!grid) return;
+      if (grid.style.display === "none") {
+        grid.style.display = "grid";
+        if (btn) btn.innerHTML = "👁️ Collapse Markets";
+      } else {
+        grid.style.display = "none";
+        if (btn) btn.innerHTML = "👁️ Expand All 6 Markets";
+      }
+    }
+
+    function renderMatchdayMarkets(ensemble, smartRouting, hcReport) {
       const grid = document.getElementById("modal-markets-grid");
       if (!grid) return;
       grid.innerHTML = "";
@@ -5776,19 +5892,29 @@
         const isRouted = smartRouting && smartRouting.active && smartRouting.recommended_market === m.key;
         const isGoalRouted = smartRouting && smartRouting.goal_routing && smartRouting.goal_routing.active && m.key === "OU15";
 
+        // Check high-confidence pick status
+        const hcPick = hcReport?.picks?.find(pick => pick.market === m.key);
+        const isSkippedMatch = hcReport && hcReport.is_skipped;
+
         // Gated low-confidence traps (BTTS_NO or UNDER_25 with LOW confidence)
         const isBttsTrap = m.key === "BTTS" && p.predicted_outcome === "BTTS_NO" && p.confidence === "LOW";
         const isUnderTrap = m.key === "OU25" && p.predicted_outcome === "UNDER_25" && p.confidence === "LOW";
         const isTrapWarning = isBttsTrap || isUnderTrap;
 
-        if (isRouted) {
+        if (hcPick) {
           card.classList.add("highlight");
-        } else if (isTrapWarning) {
+        } else if (isRouted) {
+          card.classList.add("highlight");
+        } else if (isTrapWarning || isSkippedMatch) {
           card.classList.add("trap-warning");
         }
 
         let badgeHeader = "";
-        if (isRouted) {
+        if (hcPick) {
+          badgeHeader = `<div style="background: #00D9FF; color: #071426; font-size: 0.68rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; letter-spacing: 0.5px;">⭐ HIGH-CONFIDENCE PICK #${hcPick.rank}</div>`;
+        } else if (isSkippedMatch) {
+          badgeHeader = `<div style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #f59e0b; font-size: 0.68rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block;">⚠️ EXCLUDED (Volatile / Below Threshold)</div>`;
+        } else if (isRouted) {
           badgeHeader = `<div style="background: #00D9FF; color: #071426; font-size: 0.68rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; letter-spacing: 0.5px;">★ RECOMMENDED SAFE DEFAULT</div>`;
         } else if (isGoalRouted) {
           badgeHeader = `<div style="background: #10b981; color: #071426; font-size: 0.68rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; letter-spacing: 0.5px;">★ SAFE GOALS PICK (86% WIN RATE)</div>`;
@@ -5997,14 +6123,9 @@
       const data = latestModalPayload;
       const fix = data.fixture || {};
       const ens = data.predictions?.ensemble || {};
+      const hcReport = data.high_confidence_report;
       const homeName = fix.home_team_name || "Home";
       const awayName = fix.away_team_name || "Away";
-      const smartRouting = data.smart_routing || ens["1X2"]?.features?.smart_routing;
-      const topPick = (smartRouting && smartRouting.active)
-        ? `${smartRouting.recommended_outcome} (${smartRouting.recommended_market}) - ${(smartRouting.probability * 100).toFixed(1)}%`
-        : `${ens["1X2"]?.predicted_outcome || 'Pick'} - ${((ens["1X2"]?.probability || 0) * 100).toFixed(1)}%`;
-      const conf = (smartRouting && smartRouting.active) ? smartRouting.confidence : (ens["1X2"]?.confidence || "MEDIUM");
-      const reason = (smartRouting && smartRouting.active) ? smartRouting.reason : (ens["1X2"]?.features?.consensus_explanation || "Multi-model ensemble consensus");
 
       const hForm = (data.home_form && data.home_form.length) ? data.home_form.join("-") : "N/A";
       const aForm = (data.away_form && data.away_form.length) ? data.away_form.join("-") : "N/A";
@@ -6014,14 +6135,36 @@
       const xgH = cs.home_xg != null ? Number(cs.home_xg).toFixed(2) : "N/A";
       const xgA = cs.away_xg != null ? Number(cs.away_xg).toFixed(2) : "N/A";
 
+      let predictionBlock = "";
+      if (hcReport && hcReport.is_skipped) {
+        predictionBlock = [
+          `⚠️ STATUS: NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH`,
+          `💡 Rationale: ${hcReport.skip_rationale || 'High market volatility / insufficient edge.'}`,
+          `🛡️ Principle: Skipping is preferred over weak or coin-flip predictions.`
+        ].join("\n");
+      } else if (hcReport && hcReport.picks && hcReport.picks.length > 0) {
+        predictionBlock = [
+          `🎯 HIGH-CONFIDENCE PREDICTIONS (${hcReport.total_picks} of Max 3 Selected):`,
+          ...hcReport.picks.map(p => 
+            `  • Option #${p.rank} [${p.confidence}]: ${p.outcome_display} (${p.probability_pct} @ ${p.estimated_odd})\n    - Rationale: ${p.rationale}\n    - Risks: ${p.risks}`
+          )
+        ].join("\n");
+      } else {
+        const smartRouting = data.smart_routing || ens["1X2"]?.features?.smart_routing;
+        const topPick = (smartRouting && smartRouting.active)
+          ? `${smartRouting.recommended_outcome} (${smartRouting.recommended_market}) - ${(smartRouting.probability * 100).toFixed(1)}%`
+          : `${ens["1X2"]?.predicted_outcome || 'Pick'} - ${((ens["1X2"]?.probability || 0) * 100).toFixed(1)}%`;
+        const conf = (smartRouting && smartRouting.active) ? smartRouting.confidence : (ens["1X2"]?.confidence || "MEDIUM");
+        const reason = (smartRouting && smartRouting.active) ? smartRouting.reason : (ens["1X2"]?.features?.consensus_explanation || "Multi-model ensemble consensus");
+        predictionBlock = `🛡️ RECOMMENDED PICK: ${topPick}\n📊 Confidence: ${conf}\n💡 AI Verdict: ${reason}`;
+      }
+
       const summary = [
         `⚽ MATCHDAY INTELLIGENCE: ${homeName} vs ${awayName}`,
         `🏆 ${fix.competition_name || 'League'} • ${fix.utc_date || ''}`,
         `🏟️ Venue: ${fix.venue || 'Standard Venue'}`,
         ``,
-        `🛡️ RECOMMENDED PICK: ${topPick}`,
-        `📊 Confidence: ${conf}`,
-        `💡 AI Verdict: ${reason}`,
+        predictionBlock,
         ``,
         `📈 Form (Last 5):`,
         `  - ${homeName}: ${hForm}`,
@@ -6033,7 +6176,7 @@
         `  - Expected Goals (xG): ${xgH} vs ${xgA}`,
         `  - Win Rate: ${cs.home_win_rate_pct != null ? cs.home_win_rate_pct + '%' : 'N/A'} vs ${cs.away_win_rate_pct != null ? cs.away_win_rate_pct + '%' : 'N/A'}`,
         ``,
-        `⚡ Powered by ZolaPredict`
+        `⚡ Powered by ZolaPredict High-Confidence System`
       ].join("\n");
 
       function doClipboardCopy(text) {
