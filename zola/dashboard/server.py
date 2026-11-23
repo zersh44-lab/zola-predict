@@ -35,6 +35,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 class DashboardRequestHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests for Zola Predict local dashboard and REST API."""
 
+    _LAST_CRON_SYNC: Optional[Dict[str, Any]] = None
     server_settings: Settings
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -261,6 +262,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 "elapsed_ms": elapsed_ms,
             }
             repo.save_setting("last_fixture_sync", sync_metadata)
+            DashboardRequestHandler._LAST_CRON_SYNC = sync_metadata
+            try:
+                Path("/tmp/last_fixture_sync.json").write_text(json.dumps(sync_metadata), encoding="utf-8")
+            except Exception:
+                pass
 
             self._send_json({
                 "success": True,
@@ -374,7 +380,14 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 stats = repo.get_database_stats()
                 recent_logs = [log.to_dict() for log in repo.get_recent_api_logs(limit=5)]
                 cred_status = settings.get_credentials_status()
-                last_sync = repo.get_setting("last_fixture_sync")
+                last_sync = DashboardRequestHandler._LAST_CRON_SYNC or repo.get_setting("last_fixture_sync")
+                if not last_sync:
+                    try:
+                        tmp_sync_file = Path("/tmp/last_fixture_sync.json")
+                        if tmp_sync_file.exists():
+                            last_sync = json.loads(tmp_sync_file.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
 
                 self._send_json({
                     "status": "online",
