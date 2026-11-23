@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from zola.database.models import (
     AccuracyMetric,
@@ -193,6 +196,40 @@ class FootballRepository:
     def upsert_fixture(self, fixture: Fixture) -> int:
         """Insert or safely update fixture, preventing duplicates. Returns fixture ID."""
         cursor = self.conn.cursor()
+
+        # Check for existing fixture to detect identity conflicts
+        cursor.execute(
+            "SELECT id, home_team_id, away_team_id, competition_id, status FROM fixtures WHERE provider = ? AND external_id = ? LIMIT 1;",
+            (fixture.provider, str(fixture.external_id)),
+        )
+        existing = cursor.fetchone()
+        if existing:
+            # If incoming provider fixture has conflicting team IDs, quarantine existing and fail closed
+            if (
+                existing["home_team_id"] != fixture.home_team_id
+                or existing["away_team_id"] != fixture.away_team_id
+            ):
+                logger.error(
+                    "Conflict detected for provider fixture %s:%s. Existing teams (%s, %s) != Incoming teams (%s, %s). Quarantining record.",
+                    fixture.provider,
+                    fixture.external_id,
+                    existing["home_team_id"],
+                    existing["away_team_id"],
+                    fixture.home_team_id,
+                    fixture.away_team_id,
+                )
+                cursor.execute(
+                    """
+                    UPDATE fixtures
+                    SET status = 'INVALID_FIXTURE_IDENTITY',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?;
+                    """,
+                    (existing["id"],),
+                )
+                self.conn.commit()
+                return int(existing["id"])
+
         cursor.execute(
             """
             INSERT INTO fixtures (
@@ -702,12 +739,30 @@ class FootballRepository:
         """Evaluate pending predictions against actual match results with WIN/LOSS/PUSH/VOID settlement."""
         from zola.prediction.calibration import brier_score, log_loss_score, expected_calibration_error
         cursor = self.conn.cursor()
+
+        if fixture_id:
+            cursor.execute("SELECT status FROM fixtures WHERE id = ?;", (fixture_id,))
+            f_row = cursor.fetchone()
+            if not f_row or str(f_row["status"]).startswith("INVALID") or str(f_row["status"]) == "INVALID_FIXTURE_IDENTITY":
+                logger.warning("Settlement blocked for invalid fixture %s", fixture_id)
+                return {
+                    "evaluated_count": 0,
+                    "correct_count": 0,
+                    "accuracy_rate": 0.0,
+                    "status": "BLOCKED",
+                    "error": "INVALID FIXTURE — CANNOT BE SETTLED",
+                }
+
         query = """
             SELECT p.*, mr.full_time_home_score, mr.full_time_away_score, mr.winner
             FROM predictions p
             JOIN fixtures f ON p.fixture_id = f.id
             JOIN match_results mr ON f.id = mr.fixture_id
             WHERE f.status = 'FINISHED'
+              AND f.status NOT LIKE 'INVALID%'
+              AND f.status != 'INVALID_FIXTURE_IDENTITY'
+              AND p.status != 'INVALID'
+              AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
               AND mr.full_time_home_score IS NOT NULL
         """
         params: List[Any] = []
@@ -829,14 +884,18 @@ class FootballRepository:
         # Update accuracy_metrics table with Brier Score, Log Loss & ECE
         cursor.execute(
             """
-            SELECT model_name, market,
-                   COUNT(CASE WHEN is_correct IN (0, 1) THEN 1 END) as total,
-                   SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct,
-                   SUM(CASE WHEN settlement_status = 'PUSH' OR status = 'PUSH' THEN 1 ELSE 0 END) as pushes,
-                   SUM(CASE WHEN settlement_status = 'VOID' OR status = 'VOID' THEN 1 ELSE 0 END) as voids
-            FROM predictions
-            WHERE status != 'PENDING'
-            GROUP BY model_name, market;
+            SELECT p.model_name, p.market,
+                   COUNT(CASE WHEN p.is_correct IN (0, 1) THEN 1 END) as total,
+                   SUM(CASE WHEN p.is_correct = 1 THEN 1 ELSE 0 END) as correct,
+                   SUM(CASE WHEN p.settlement_status = 'PUSH' OR p.status = 'PUSH' THEN 1 ELSE 0 END) as pushes,
+                   SUM(CASE WHEN p.settlement_status = 'VOID' OR p.status = 'VOID' THEN 1 ELSE 0 END) as voids
+            FROM predictions p
+            JOIN fixtures f ON p.fixture_id = f.id
+            WHERE p.status != 'PENDING'
+              AND p.status != 'INVALID'
+              AND f.status NOT LIKE 'INVALID%'
+              AND f.status != 'INVALID_FIXTURE_IDENTITY'
+            GROUP BY p.model_name, p.market;
             """
         )
         metric_rows = cursor.fetchall()
@@ -849,9 +908,13 @@ class FootballRepository:
 
             cursor.execute(
                 """
-                SELECT probability, is_correct
-                FROM predictions
-                WHERE model_name = ? AND market = ? AND is_correct IN (0, 1);
+                SELECT p.probability, p.is_correct
+                FROM predictions p
+                JOIN fixtures f ON p.fixture_id = f.id
+                WHERE p.model_name = ? AND p.market = ? AND p.is_correct IN (0, 1)
+                  AND p.status != 'INVALID'
+                  AND f.status NOT LIKE 'INVALID%'
+                  AND f.status != 'INVALID_FIXTURE_IDENTITY';
                 """,
                 (mr_row["model_name"], mr_row["market"]),
             )
@@ -906,6 +969,17 @@ class FootballRepository:
 
     def settle_fixture(self, fixture_id: int, home_score: int, away_score: int) -> Dict[str, Any]:
         """Manually settle a fixture with confirmed final scores and evaluate its predictions."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT status FROM fixtures WHERE id = ?;", (fixture_id,))
+        f_row = cursor.fetchone()
+        if not f_row or str(f_row["status"]).startswith("INVALID") or str(f_row["status"]) == "INVALID_FIXTURE_IDENTITY":
+            logger.warning("Manual settlement blocked for invalid fixture %s", fixture_id)
+            return {
+                "fixture_id": fixture_id,
+                "status": "BLOCKED",
+                "error": "INVALID FIXTURE — CANNOT BE SETTLED",
+            }
+
         winner = "HOME_TEAM" if home_score > away_score else ("AWAY_TEAM" if away_score > home_score else "DRAW")
         mr = MatchResult(
             fixture_id=fixture_id,
@@ -915,7 +989,6 @@ class FootballRepository:
         )
         self.upsert_match_result(mr)
 
-        cursor = self.conn.cursor()
         cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?;", (fixture_id,))
         self.conn.commit()
 
@@ -946,6 +1019,10 @@ class FootballRepository:
                 FROM predictions p
                 JOIN fixtures f ON p.fixture_id = f.id
                 WHERE p.status != 'PENDING'
+                  AND p.status != 'INVALID'
+                  AND f.status NOT LIKE 'INVALID%'
+                  AND f.status != 'INVALID_FIXTURE_IDENTITY'
+                  AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
             """
             params: List[Any] = []
             if model_name:
@@ -1884,6 +1961,8 @@ class FootballRepository:
                 JOIN teams at ON f.away_team_id = at.id
                 LEFT JOIN match_results mr ON f.id = mr.fixture_id
                 WHERE f.status IN ('SCHEDULED', 'TIMED', 'TBD', 'NOT_STARTED')
+                  AND f.status NOT LIKE 'INVALID%'
+                  AND f.status != 'INVALID_FIXTURE_IDENTITY'
                   AND DATE(f.utc_date) >= ? AND DATE(f.utc_date) <= ?
                 ORDER BY f.utc_date ASC, f.id ASC;
             """
@@ -1908,6 +1987,8 @@ class FootballRepository:
                 JOIN teams at ON f.away_team_id = at.id
                 LEFT JOIN match_results mr ON f.id = mr.fixture_id
                 WHERE DATE(f.utc_date) = ?
+                  AND f.status NOT LIKE 'INVALID%'
+                  AND f.status != 'INVALID_FIXTURE_IDENTITY'
                 ORDER BY f.utc_date ASC, f.id ASC;
             """
             cursor.execute(query, (target_date,))
@@ -2021,6 +2102,8 @@ class FootballRepository:
                 """
                 SELECT COUNT(*) FROM fixtures
                 WHERE status IN ('SCHEDULED', 'TIMED', 'TBD', 'NOT_STARTED')
+                  AND status NOT LIKE 'INVALID%'
+                  AND status != 'INVALID_FIXTURE_IDENTITY'
                   AND DATE(utc_date) >= ? AND DATE(utc_date) <= ?
                 """,
                 (target_date, up_end),

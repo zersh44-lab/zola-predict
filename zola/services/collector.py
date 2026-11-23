@@ -20,7 +20,7 @@ from zola.database.models import (
     Team,
 )
 from zola.database.repository import FootballRepository
-from zola.validation.fixture import is_synthetic_external_id
+from zola.validation.fixture import is_synthetic_external_id, validate_fixture_identity
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,21 @@ class FootballCollectorService:
             return 0
         if sf.home_team.name.strip().lower() == sf.away_team.name.strip().lower():
             logger.warning("Rejecting fixture with identical teams: %s", sf.home_team.name)
+            return 0
+
+        fix_dict = {
+            "external_id": sf.external_id,
+            "provider": provider,
+            "competition_id": local_competition_id,
+            "season": sf.season or "2026",
+            "utc_date": sf.utc_date,
+            "status": sf.status,
+            "home_team_name": sf.home_team.name,
+            "away_team_name": sf.away_team.name,
+        }
+        is_val, val_rej = validate_fixture_identity(fix_dict)
+        if not is_val:
+            logger.warning("Rejecting fixture failing identity validation: %s (%s)", sf.external_id, val_rej)
             return 0
 
         # 1. Upsert home team

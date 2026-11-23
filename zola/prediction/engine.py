@@ -52,9 +52,16 @@ class PredictionEngine:
             raise ValueError(f"Fixture with ID {fixture_id} not found in database.")
 
         # Strict Fixture Data Integrity Check
-        is_fix_valid, fix_rej = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+        is_fix_valid, fix_rej = validate_fixture_for_prediction(
+            fixture,
+            enforce_future_kickoff=False,
+            repository=self.repository,
+        )
         if not is_fix_valid:
-            raise ValueError(f"Fixture {fixture_id} rejected by data integrity validation: {fix_rej}")
+            rej_msg = str(fix_rej or "INVALID FIXTURE — PREDICTION BLOCKED")
+            if "INVALID FIXTURE — PREDICTION BLOCKED" not in rej_msg:
+                rej_msg = f"INVALID FIXTURE — PREDICTION BLOCKED: {rej_msg}"
+            raise ValueError(rej_msg)
 
         home_team_id = fixture["home_team_id"]
         away_team_id = fixture["away_team_id"]

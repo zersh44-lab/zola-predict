@@ -418,12 +418,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     return
 
                 # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                is_valid, rej_reason = validate_fixture_for_prediction(
+                    fixture,
+                    enforce_future_kickoff=False,
+                    repository=repo,
+                )
                 if not is_valid:
                     self._send_json({
-                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "is_skipped": True,
-                        "skip_reason": rej_reason,
+                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "details": rej_reason,
                     }, 400)
                     return
                 self._send_json({"fixture": fixture})
@@ -447,12 +452,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     return
 
                 # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                is_valid, rej_reason = validate_fixture_for_prediction(
+                    fixture,
+                    enforce_future_kickoff=False,
+                    repository=repo,
+                )
                 if not is_valid:
                     self._send_json({
-                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "is_skipped": True,
-                        "skip_reason": rej_reason,
+                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "details": rej_reason,
                     }, 400)
                     return
 
@@ -464,8 +474,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
 
-                engine = PredictionEngine(repo)
-                results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
+                try:
+                    engine = PredictionEngine(repo)
+                    results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
+                except ValueError as e:
+                    self._send_json({
+                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "is_skipped": True,
+                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "details": str(e),
+                    }, 400)
+                    return
                 serialized = _serialize_predictions(results)
 
                 smart_routing = None
@@ -596,12 +615,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     return
 
                 # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                is_valid, rej_reason = validate_fixture_for_prediction(
+                    fixture,
+                    enforce_future_kickoff=False,
+                    repository=repo,
+                )
                 if not is_valid:
                     self._send_json({
-                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "is_skipped": True,
-                        "skip_reason": rej_reason,
+                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "details": rej_reason,
                     }, 400)
                     return
 
