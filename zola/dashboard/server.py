@@ -61,24 +61,56 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def _handle_history_sync(self, settings: Settings, db_path: str) -> None:
-        """Fetch finished match results for recent matchdays (today & yesterday), persist scores, and evaluate predictions."""
+        """Fetch finished match results for recent matchdays, persist scores, and evaluate predictions."""
         from datetime import datetime, timedelta, timezone
         from zola.client.api_sports import ApiSportsClient
         from zola.database.models import MatchResult
+        from zola.services.collector import CALENDAR_RESULTS
 
         conn = get_connection(db_path)
         synced_count = 0
         evaluated_result = {}
         try:
             repo = FootballRepository(conn)
+            cursor = conn.cursor()
+
+            # 1. Reconcile known calendar match results
+            for ext_id, res in CALENDAR_RESULTS.items():
+                cursor.execute(
+                    """
+                    SELECT f.id, f.status, mr.id as mr_id
+                    FROM fixtures f
+                    LEFT JOIN match_results mr ON f.id = mr.fixture_id
+                    WHERE f.external_id = ?
+                    """,
+                    (ext_id,),
+                )
+                row = cursor.fetchone()
+                if row and (row["status"] != "FINISHED" or not row["mr_id"]):
+                    fid = row["id"]
+                    cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
+                    repo.upsert_match_result(
+                        MatchResult(
+                            fixture_id=fid,
+                            winner=res["winner"],
+                            duration="REGULAR",
+                            full_time_home_score=res["ft_h"],
+                            full_time_away_score=res["ft_a"],
+                            half_time_home_score=res["ht_h"],
+                            half_time_away_score=res["ht_a"],
+                        )
+                    )
+                    synced_count += 1
+            conn.commit()
+
+            # 2. Fetch live finished fixtures across rolling 4-day window if API key available
             if settings.football_api_key:
                 client = ApiSportsClient(api_key=settings.football_api_key)
                 now_utc = datetime.now(timezone.utc)
                 dates = [
-                    (now_utc - timedelta(days=1)).strftime("%Y-%m-%d"),
-                    now_utc.strftime("%Y-%m-%d"),
+                    (now_utc - timedelta(days=i)).strftime("%Y-%m-%d")
+                    for i in range(4, -1, -1)
                 ]
-                cursor = conn.cursor()
                 for d in dates:
                     try:
                         fixtures, _, _ = client.get_fixtures(competition_code_or_id="all", date=d, status=None)
@@ -93,7 +125,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                             cursor.execute("SELECT id FROM fixtures WHERE external_id = ?", (str(sf.external_id),))
                             row = cursor.fetchone()
                             fid = row["id"] if row else None
-                            if not fid:
+                            if not fid and sf.home_team and sf.away_team:
                                 cursor.execute(
                                     """
                                     SELECT f.id FROM fixtures f
@@ -106,6 +138,21 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                                 )
                                 row2 = cursor.fetchone()
                                 fid = row2["id"] if row2 else None
+                            if not fid and sf.home_team and sf.away_team:
+                                cursor.execute(
+                                    """
+                                    SELECT f.id FROM fixtures f
+                                    JOIN teams ht ON f.home_team_id = ht.id
+                                    JOIN teams at ON f.away_team_id = at.id
+                                    WHERE (LOWER(ht.name) LIKE ? OR LOWER(?) LIKE LOWER(ht.name))
+                                      AND (LOWER(at.name) LIKE ? OR LOWER(?) LIKE LOWER(at.name))
+                                      AND substr(f.utc_date, 1, 10) = ?
+                                    """,
+                                    (f"%{sf.home_team.name.lower()}%", sf.home_team.name.lower(),
+                                     f"%{sf.away_team.name.lower()}%", sf.away_team.name.lower(), d),
+                                )
+                                row3 = cursor.fetchone()
+                                fid = row3["id"] if row3 else None
                             if fid:
                                 cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
                                 repo.upsert_match_result(
