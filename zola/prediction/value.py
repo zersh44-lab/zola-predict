@@ -20,7 +20,10 @@ def remove_overround_proportional(odds_dict: Dict[str, float]) -> Dict[str, floa
     """
     if not odds_dict:
         return {}
-    implied = {k: 1.0 / max(1.001, o) for k, o in odds_dict.items()}
+    clean = {k: float(o) for k, o in odds_dict.items() if isinstance(o, (int, float)) and not isinstance(o, bool) and o > 1.0}
+    if not clean:
+        return {}
+    implied = {k: 1.0 / max(1.001, o) for k, o in clean.items()}
     total_implied = sum(implied.values()) or 1.0
     return {k: round(p / total_implied, 4) for k, p in implied.items()}
 
@@ -32,13 +35,16 @@ def remove_overround_shin(odds_dict: Dict[str, float], max_iter: int = 50) -> Di
     """
     if not odds_dict:
         return {}
-    implied = {k: 1.0 / max(1.001, o) for k, o in odds_dict.items()}
+    clean = {k: float(o) for k, o in odds_dict.items() if isinstance(o, (int, float)) and not isinstance(o, bool) and o > 1.0}
+    if not clean:
+        return {}
+    implied = {k: 1.0 / max(1.001, o) for k, o in clean.items()}
     overround = sum(implied.values()) - 1.0
     
     if overround <= 0.001:
-        return remove_overround_proportional(odds_dict)
+        return remove_overround_proportional(clean)
 
-    keys = list(odds_dict.keys())
+    keys = list(clean.keys())
     # Bisection search for z in [0, overround]
     low = 0.0
     high = min(0.35, max(0.01, overround))
@@ -113,8 +119,22 @@ def analyze_market_value(
             "recommendation": None,
         }
 
-    # Verify matching outcomes
-    available_keys = [k for k in bookmaker_odds.keys() if k in model_probabilities]
+    # Verify matching numeric outcomes (filtering out metadata flags like is_synthetic, source, etc.)
+    clean_odds: Dict[str, float] = {}
+    for k, val in bookmaker_odds.items():
+        if isinstance(val, bool):
+            continue
+        if isinstance(val, (int, float)) and val > 1.0:
+            clean_odds[k] = float(val)
+        elif isinstance(val, str):
+            try:
+                f_val = float(val)
+                if f_val > 1.0:
+                    clean_odds[k] = f_val
+            except (ValueError, TypeError):
+                continue
+
+    available_keys = [k for k in clean_odds.keys() if k in model_probabilities]
     if not available_keys:
         return {
             "status": "UNAVAILABLE",
@@ -125,7 +145,7 @@ def analyze_market_value(
             "recommendation": None,
         }
 
-    fair_market_probs = remove_overround_shin(bookmaker_odds)
+    fair_market_probs = remove_overround_shin(clean_odds)
 
     outcomes_analysis: Dict[str, Dict[str, Any]] = {}
     best_outcome = None
@@ -133,7 +153,7 @@ def analyze_market_value(
 
     for outcome in available_keys:
         m_prob = model_probabilities[outcome]
-        odds = bookmaker_odds[outcome]
+        odds = clean_odds[outcome]
         implied_p = implied_probability(odds)
         fair_p = fair_market_probs.get(outcome, implied_p)
         ev = calculate_expected_value(m_prob, odds)
