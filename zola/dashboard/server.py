@@ -21,7 +21,11 @@ from zola.prediction.engine import PredictionEngine
 from zola.research.ai import get_ai_provider
 from zola.research.ai.providers import _serialize_predictions
 from zola.telegram.reporter import TelegramReportSender
-from zola.validation.fixture import validate_fixture_for_prediction
+from zola.validation.fixture import (
+    INELIGIBLE_MATCH_STATUSES,
+    validate_fixture_for_prediction,
+    validate_fixture_identity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -417,10 +421,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Fixture not found"}, 404)
                     return
 
-                # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(
+                # Strict Fixture Data Integrity Check: reject corrupt or quarantined fixtures
+                is_valid, rej_reason = validate_fixture_identity(
                     fixture,
-                    enforce_future_kickoff=False,
                     repository=repo,
                 )
                 if not is_valid:
@@ -451,10 +454,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Fixture not found"}, 404)
                     return
 
-                # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(
+                # Strict Fixture Data Integrity Check: reject corrupt or quarantined fixtures
+                is_valid, rej_reason = validate_fixture_identity(
                     fixture,
-                    enforce_future_kickoff=False,
                     repository=repo,
                 )
                 if not is_valid:
@@ -473,24 +475,6 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         odds_data = json.loads(raw_odds)
                     except Exception:
                         pass
-
-                try:
-                    engine = PredictionEngine(repo)
-                    results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
-                except ValueError as e:
-                    self._send_json({
-                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "is_skipped": True,
-                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "details": str(e),
-                    }, 400)
-                    return
-                serialized = _serialize_predictions(results)
-
-                smart_routing = None
-                if "ensemble" in results and "1X2" in results["ensemble"]:
-                    feat = results["ensemble"]["1X2"].features or {}
-                    smart_routing = feat.get("smart_routing")
 
                 # Pre-Match Context & Comparison Statistics
                 home_id = fixture.get("home_team_id")
@@ -549,6 +533,66 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         h2h_summary["home_wins"] += 1
                     elif (w == "AWAY_TEAM" and m_hid == home_id) or (w == "HOME_TEAM" and m_hid != home_id):
                         h2h_summary["away_wins"] += 1
+
+                # Check if fixture is concluded / finished and has no predictions
+                status_clean = str(fixture.get("status") or "").strip().upper()
+                existing_preds = repo.get_predictions_for_fixture(int(fid_raw))
+
+                if status_clean in INELIGIBLE_MATCH_STATUSES and not existing_preds:
+                    h_score = fixture.get("full_time_home_score")
+                    a_score = fixture.get("full_time_away_score")
+                    score_str = f" (Full Time: {h_score} - {a_score})" if (h_score is not None and a_score is not None) else ""
+                    comparison_stats = {
+                        "home_xg": None,
+                        "away_xg": None,
+                        "home_goals_scored": h_stats.get("avg_goals_scored"),
+                        "away_goals_scored": a_stats.get("avg_goals_scored"),
+                        "home_goals_conceded": h_stats.get("avg_goals_conceded"),
+                        "away_goals_conceded": a_stats.get("avg_goals_conceded"),
+                        "home_clean_sheet_pct": h_stats.get("clean_sheet_pct"),
+                        "away_clean_sheet_pct": a_stats.get("clean_sheet_pct"),
+                        "home_win_rate_pct": h_stats.get("win_rate_pct"),
+                        "away_win_rate_pct": a_stats.get("win_rate_pct"),
+                    }
+                    high_confidence_report = {
+                        "is_skipped": True,
+                        "skip_reason": "MATCH CONCLUDED — PRE-MATCH PREDICTIONS CLOSED",
+                        "skip_rationale": f"This fixture concluded with status '{status_clean}'{score_str}. In accordance with strict pre-match integrity rules, live predictions cannot be generated post-kickoff.",
+                        "picks": [],
+                        "total_picks": 0,
+                        "eligible_count": 0,
+                        "rejected_count": 0,
+                        "requires_valid_odds": True,
+                    }
+                    self._send_json({
+                        "fixture": fixture,
+                        "predictions": {},
+                        "smart_routing": None,
+                        "high_confidence_report": high_confidence_report,
+                        "home_form": h_stats.get("form", []),
+                        "away_form": a_stats.get("form", []),
+                        "h2h": h2h_summary,
+                        "comparison_stats": comparison_stats,
+                    })
+                    return
+
+                try:
+                    engine = PredictionEngine(repo)
+                    results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
+                except ValueError as e:
+                    self._send_json({
+                        "error": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "is_skipped": True,
+                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                        "details": str(e),
+                    }, 400)
+                    return
+                serialized = _serialize_predictions(results)
+
+                smart_routing = None
+                if "ensemble" in results and "1X2" in results["ensemble"]:
+                    feat = results["ensemble"]["1X2"].features or {}
+                    smart_routing = feat.get("smart_routing")
 
                 poi_feat = results.get("poisson", {}).get("1X2", {}).features or {}
 
@@ -614,10 +658,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Fixture not found"}, 404)
                     return
 
-                # Strict Fixture Data Integrity Check
-                is_valid, rej_reason = validate_fixture_for_prediction(
+                # Strict Fixture Data Integrity Check: reject corrupt or quarantined fixtures
+                is_valid, rej_reason = validate_fixture_identity(
                     fixture,
-                    enforce_future_kickoff=False,
                     repository=repo,
                 )
                 if not is_valid:
@@ -629,8 +672,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     }, 400)
                     return
 
-                engine = PredictionEngine(repo)
-                preds = engine.predict_fixture(int(fid_raw), persist=True)
+                try:
+                    engine = PredictionEngine(repo)
+                    preds = engine.predict_fixture(int(fid_raw), persist=True)
+                except ValueError:
+                    preds = {}
 
                 ai_provider = get_ai_provider(settings)
                 report = ai_provider.generate_research_summary(fixture, preds)

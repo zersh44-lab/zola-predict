@@ -142,6 +142,35 @@ def test_api_predict_fixture(test_dashboard_server):
         assert hc_synth["skip_reason"] == "NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH."
 
 
+def test_api_predict_finished_fixture(test_dashboard_server):
+    base_url, server = test_dashboard_server
+    from zola.database.connection import get_connection
+    from zola.database.repository import FootballRepository
+    from zola.database.models import Fixture
+    conn = get_connection(server.settings.db_path)
+    repo = FootballRepository(conn)
+    f_fin = Fixture(
+        external_id="fin_test_123",
+        provider="api-football",
+        competition_id=1,
+        season="2026",
+        matchday=1,
+        utc_date="2026-11-20T16:30:00+00:00",
+        status="FINISHED",
+        home_team_id=1,
+        away_team_id=2,
+    )
+    fid = repo.upsert_fixture(f_fin)
+    conn.close()
+
+    req = urllib.request.Request(f"{base_url}/api/predict?id={fid}")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["high_confidence_report"]["is_skipped"] is True
+        assert "MATCH CONCLUDED" in data["high_confidence_report"]["skip_reason"]
+
+
 def test_api_evaluate_predictions(test_dashboard_server):
     base_url, _ = test_dashboard_server
     req = urllib.request.Request(

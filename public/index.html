@@ -5096,7 +5096,7 @@
 
           <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem;">
             ${predBadge}
-            <button class="btn btn-sm btn-row-predict" onclick="openPredictionModal(${f.id})">Predict</button>
+            <button class="btn btn-sm btn-row-predict" onclick="openPredictionModal(${f.id})">${(f.status === 'FINISHED' || f.status === 'FT') ? (f.has_prediction ? 'Analysis' : 'Match Intel') : 'Predict'}</button>
           </div>
         </div>
       `;
@@ -5437,7 +5437,7 @@
           </td>
           <td>${statusBadge}</td>
           <td>
-            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">Predict</button>
+            <button class="btn btn-sm" onclick="openPredictionModal(${f.id})">${(f.status === 'FINISHED' || f.status === 'FT') ? 'Intel' : 'Predict'}</button>
           </td>
         `;
 
@@ -5497,8 +5497,27 @@
         const data = await res.json();
 
         if (data.error) {
-          alert("Error: " + data.error);
-          closeModal();
+          const compEl = document.getElementById("modal-hero-comp");
+          if (compEl) compEl.innerText = "PREDICTION BLOCKED";
+          const pickEl = document.getElementById("modal-consensus-pick");
+          if (pickEl) pickEl.innerText = "PREDICTION BLOCKED";
+          const reasonEl = document.getElementById("modal-verdict-reason");
+          if (reasonEl) reasonEl.innerText = data.details || data.error;
+
+          const hcSection = document.getElementById("modal-high-confidence-section");
+          if (hcSection) {
+            hcSection.innerHTML = `
+              <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <span style="font-size: 1.35rem;">🚫</span>
+                  <span style="font-size: 1.05rem; font-weight: 800; color: #ef4444;">${safeEscape(data.error)}</span>
+                </div>
+                <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5;">
+                  ${safeEscape(data.details || "This fixture is quarantined or ineligible for predictions.")}
+                </div>
+              </div>
+            `;
+          }
           return;
         }
 
