@@ -197,38 +197,38 @@ class TelegramReportSender:
                 "⚠️ *NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH.*",
                 f"💡 _{hc_report.get('skip_rationale', 'Insufficient statistical edge or high volatility.')}_",
                 "",
-                "🔒 _Market Policy: Only verified high-yield markets (OU05, OU15, DOUBLE_CHANCE) are eligible for selection._",
+                "🔒 _Market Policy: Only verified high-yield markets (OU05, OU15) with verified pre-match odds and positive EV are eligible._",
+                "ℹ️ _Note: Model probability is a statistical estimate and does not represent verified betting value without verified pre-match odds._",
             ])
         elif hc_report and hc_report.get("picks"):
             lines.append("🎯 *Selected High-Confidence Options (Max 3):*")
             for pick in hc_report.get("picks", []):
                 # Ensure market is strictly in approved allowlist
-                if pick.get("market") not in ("OU05", "OU15", "DOUBLE_CHANCE"):
+                if pick.get("market") not in ("OU05", "OU15"):
                     continue
                 rank = pick.get("rank", 1)
                 outcome = pick.get("outcome_display", "")
                 prob = pick.get("probability_pct", "")
                 conf = pick.get("confidence", "HIGH")
-                odd = pick.get("estimated_odd", "-")
+                m_odd = pick.get("market_odd")
+                odd_str = f"@{m_odd:.2f}" if m_odd else f"@{pick.get('estimated_odd', '-')}"
+                ev_str = pick.get("expected_value_pct") or "N/A"
+                val_status = pick.get("betting_value_status", "VERIFIED_POSITIVE_EV")
                 rationale = pick.get("rationale", "")
                 risks = pick.get("risks", "")
                 lines.extend([
-                    f"*{rank}. {outcome}* | Est. Odd: `{odd}`",
-                    f"   • Probability: `{prob}` | Confidence: `{conf}`",
+                    f"*{rank}. {outcome}*",
+                    f"   • Model Probability: `{prob}` | Confidence: `{conf}` (Algorithmic)",
+                    f"   • Bookmaker Odd: `{odd_str}` | Expected Value: `{ev_str}` ({val_status})",
                     f"   • Rationale: _{rationale}_",
                     f"   • Key Risk: _{risks}_",
                     "",
                 ])
         else:
-            # Fallback formatting strictly for approved markets only
+            # Fallback formatting strictly for approved markets only (OU15, OU05)
             p_ou15 = ensemble.get("OU15")
-            p_dc = ensemble.get("DOUBLE_CHANCE")
             p_ou05 = ensemble.get("OU05")
-            lines.append("📊 *Approved Market Analysis:*")
-            if p_dc:
-                dc_pick = p_dc.predicted_outcome if hasattr(p_dc, "predicted_outcome") else p_dc.get("predicted_outcome", "N/A")
-                dc_prob = p_dc.probability if hasattr(p_dc, "probability") else p_dc.get("probability", 0)
-                lines.append(f"• *Double Chance*: `{dc_pick}` ({dc_prob*100:.1f}%)")
+            lines.append("📊 *Approved Market Analysis (OU15 / OU05):*")
             if p_ou15:
                 o15_pick = p_ou15.predicted_outcome if hasattr(p_ou15, "predicted_outcome") else p_ou15.get("predicted_outcome", "N/A")
                 o15_prob = p_ou15.probability if hasattr(p_ou15, "probability") else p_ou15.get("probability", 0)

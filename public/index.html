@@ -5635,7 +5635,7 @@
           pickProb = topPick.probability || 0.75;
           pickConf = topPick.confidence || "HIGH";
           pickReason = topPick.rationale || "";
-        } else if (smartRouting && smartRouting.active && ["DOUBLE_CHANCE", "OU15", "OU05"].includes(smartRouting.recommended_market)) {
+        } else if (smartRouting && smartRouting.active && ["OU15", "OU05"].includes(smartRouting.recommended_market)) {
           verdictBadge.innerHTML = "🛡️ SMART-ROUTED SAFE DEFAULT";
           verdictBadge.style.borderColor = "#00D9FF";
           verdictBadge.style.color = "#00D9FF";
@@ -5650,19 +5650,19 @@
             const gr = smartRouting.goal_routing;
             pickReason += ` • Safe Goals Recommendation: ${gr.recommended_outcome} (${(gr.probability * 100).toFixed(1)}% prob, 86% win rate).`;
           }
-        } else if (ens["DOUBLE_CHANCE"]) {
-          const dc = ens["DOUBLE_CHANCE"];
-          verdictBadge.innerHTML = "🎯 DOUBLE CHANCE CONSENSUS";
+        } else if (ens["OU15"] && ens["OU15"].predicted_outcome === "OVER_15") {
+          const o15 = ens["OU15"];
+          verdictBadge.innerHTML = "🎯 OVER 1.5 GOALS CONSENSUS";
           verdictBadge.style.borderColor = "#087BFF";
           verdictBadge.style.color = "#087BFF";
-          pickTitle = `Double Chance: ${dc.predicted_outcome}`;
-          pickProb = dc.probability || 0.7;
-          pickConf = dc.confidence || "MEDIUM";
-          pickReason = "Statistical consensus prioritizes multi-outcome coverage to protect against draw volatility.";
+          pickTitle = `Over 1.5 Goals`;
+          pickProb = o15.probability || 0.75;
+          pickConf = o15.confidence || "HIGH";
+          pickReason = "Statistical consensus prioritizes Over 1.5 Goals under conservative active market policy.";
         } else {
-          verdictBadge.innerHTML = "🎯 HIGH-CONFIDENCE SELECTION";
-          pickTitle = "ANALYSIS COMPLETE";
-          pickReason = "Evaluated against active market allowlist.";
+          verdictBadge.innerHTML = "⚠️ NO HIGH-CONFIDENCE PREDICTION";
+          pickTitle = "SKIP THIS MATCH";
+          pickReason = "Evaluated against active market allowlist (OU05 and OU15). No qualifying positive EV edge.";
         }
 
         verdictPick.innerText = `${pickTitle} (${(pickProb * 100).toFixed(1)}%)`;
@@ -5881,7 +5881,6 @@
       grid.innerHTML = "";
 
       const primaryMarkets = [
-        { key: "DOUBLE_CHANCE", label: "Double Chance (1X / X2 / 12)" },
         { key: "OU15", label: "Total Goals Over/Under 1.5" },
         { key: "OU05", label: "Total Goals Over/Under 0.5" }
       ];
@@ -6075,7 +6074,7 @@
 
       const notice = document.createElement("div");
       notice.style.cssText = "grid-column: 1 / -1; font-size: 0.75rem; color: #B8F5FF; text-align: center; margin-top: 0.75rem; background: rgba(7, 20, 38, 0.75); padding: 0.65rem 1rem; border-radius: 8px; border: 1px solid rgba(8, 123, 255, 0.3);";
-      notice.innerHTML = "🔒 <strong>Market Restriction Policy:</strong> Only empirically verified high-reliability markets (<code>DOUBLE_CHANCE</code>, <code>OU15</code>, <code>OU05</code>) are active. Inactive markets (<code>1X2</code>, <code>BTTS</code>, <code>OU25</code>, <code>OU35</code>, <code>DNB</code>) are temporarily suppressed to eliminate high-loss variance.";
+      notice.innerHTML = "🔒 <strong>Market Restriction Policy:</strong> Only empirically verified high-reliability markets (<code>OU15</code>, <code>OU05</code>) with verified positive EV odds are active. Inactive markets (<code>DOUBLE_CHANCE</code>, <code>1X2</code>, <code>BTTS</code>, <code>OU25</code>, <code>OU35</code>, <code>DNB</code>) are strictly blocked.";
       grid.appendChild(notice);
     }
 
@@ -6824,8 +6823,8 @@
           const isAwayWinner = score.winner === "AWAY_TEAM";
           const isDraw = score.winner === "DRAW";
 
-          // Identify Primary Smart-Routed Pick (Safe Default from Approved Markets)
-          const safeOrder = ["OU15", "DOUBLE_CHANCE", "OU05"];
+          // Identify Primary Pick from Approved Markets Only (OU15, OU05)
+          const safeOrder = ["OU15", "OU05"];
           let primaryPick = null;
           for (let mKey of safeOrder) {
             const found = preds.find(p => p.market === mKey);
@@ -6835,7 +6834,8 @@
             }
           }
           if (!primaryPick && preds.length > 0) {
-            primaryPick = preds[0];
+            const approved = preds.find(p => ["OU15", "OU05"].includes(p.market));
+            primaryPick = approved || null;
           }
 
           let primaryBannerHtml = "";

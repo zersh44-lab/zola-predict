@@ -184,3 +184,182 @@ class TemperatureScaler:
             outcome: round(val / sum_exp, 4)
             for outcome, val in exp_logits.items()
         }
+
+
+# Subtype approval status based on empirical out-of-sample audit
+# OU05 and OU15 have verified positive empirical ROI across in-sample and out-of-sample.
+# DOUBLE_CHANCE subtypes (1X, X2, 12) have negative out-of-sample ROI (-13.5%) and are blocked.
+APPROVED_MARKET_SUBTYPES: Dict[str, set[str]] = {
+    "OU05": {"OVER_05"},
+    "OU15": {"OVER_15"},
+    "DOUBLE_CHANCE": set(),  # All subtypes suspended due to out-of-sample negative ROI
+}
+
+SUBTYPE_SUSPENSION_REASONS: Dict[str, str] = {
+    "1X": "Suspended: Out-of-sample ROI is -13.5% (N=45) with severe probability overconfidence (88% model prob delivered 79% win rate).",
+    "X2": "Suspended: Sample size insufficient (N=35) and out-of-sample ROI collapsed from +23.5% in-sample to -13.5% out-of-sample (N=20).",
+    "12": "Suspended: Empirical ROI is negative (-0.65%, N=153) and market carries high draw-variance exposure.",
+}
+
+
+def is_subtype_approved(market: str, subtype: str) -> Tuple[bool, str]:
+    """Check whether a specific market outcome subtype is approved for high-confidence selection."""
+    if market not in APPROVED_MARKET_SUBTYPES:
+        return False, f"Market '{market}' is not in approved high-confidence allowlist."
+
+    approved_set = APPROVED_MARKET_SUBTYPES[market]
+    if subtype in approved_set:
+        return True, "Approved"
+
+    reason = SUBTYPE_SUSPENSION_REASONS.get(
+        subtype,
+        f"Subtype '{subtype}' of market '{market}' is not approved for high-confidence selection.",
+    )
+    return False, reason
+
+
+def compute_expected_value(probability: float, market_odd: Optional[float]) -> Optional[float]:
+    """Calculate decimal Expected Value (EV = p * odd - 1.0).
+    
+    Returns None if odds are missing, non-positive, or invalid (<= 1.0).
+    """
+    if market_odd is None or not isinstance(market_odd, (int, float)):
+        return None
+    if math.isnan(market_odd) or market_odd <= 1.0:
+        return None
+    if probability is None or not (0.0 <= probability <= 1.0):
+        return None
+
+    return (probability * market_odd) - 1.0
+
+
+def compute_roi_and_pnl(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compute exact Wins, Losses, Pushes, Net PnL, ROI, and Win Rates with correct push handling.
+    
+    Push bets (e.g. Draw No Bet draw) return the 1-unit stake with exactly 0 profit and 0 loss.
+    """
+    total = len(records)
+    if total == 0:
+        return {
+            "total_bets": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "decided_bets": 0,
+            "win_rate_decided": 0.0,
+            "win_rate_total": 0.0,
+            "pnl": 0.0,
+            "roi": 0.0,
+            "avg_odd": 0.0,
+        }
+
+    wins = 0
+    losses = 0
+    pushes = 0
+    pnl = 0.0
+    odds_sum = 0.0
+    valid_odds_count = 0
+
+    for r in records:
+        status = str(r.get("settlement_status") or "").upper()
+        is_corr = r.get("is_correct")
+        odd = r.get("odd")
+
+        if odd is not None and isinstance(odd, (int, float)) and odd > 1.0:
+            odds_sum += odd
+            valid_odds_count += 1
+        else:
+            odd = 1.0
+
+        if status == "WIN" or is_corr == 1:
+            wins += 1
+            pnl += (odd - 1.0)
+        elif status == "LOSS" or is_corr == 0:
+            losses += 1
+            pnl -= 1.0
+        elif status == "PUSH":
+            pushes += 1
+            # Stake refunded, 0 profit/loss
+        elif status == "VOID":
+            # Wager cancelled/voided, 0 profit/loss
+            pass
+
+    decided = wins + losses
+    win_rate_decided = (wins / decided * 100.0) if decided > 0 else 0.0
+    win_rate_total = (wins / total * 100.0) if total > 0 else 0.0
+    roi = (pnl / total * 100.0) if total > 0 else 0.0
+    avg_odd = (odds_sum / valid_odds_count) if valid_odds_count > 0 else 0.0
+
+    return {
+        "total_bets": total,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "decided_bets": decided,
+        "win_rate_decided": round(win_rate_decided, 2),
+        "win_rate_total": round(win_rate_total, 2),
+        "pnl": round(pnl, 2),
+        "roi": round(roi, 2),
+        "avg_odd": round(avg_odd, 3),
+    }
+
+
+def compute_calibration_bins(
+    records: List[Dict[str, Any]],
+    bins: Optional[List[Tuple[float, float, str]]] = None,
+) -> List[Dict[str, Any]]:
+    """Partition prediction records into probability bins and evaluate empirical calibration."""
+    if bins is None:
+        bins = [
+            (0.50, 0.5999, "50-59%"),
+            (0.60, 0.6499, "60-64%"),
+            (0.65, 0.6999, "65-69%"),
+            (0.70, 0.7499, "70-74%"),
+            (0.75, 0.7999, "75-79%"),
+            (0.80, 0.8499, "80-84%"),
+            (0.85, 0.8999, "85-89%"),
+            (0.90, 1.0000, "90%+"),
+        ]
+
+    results: List[Dict[str, Any]] = []
+
+    for b_low, b_high, label in bins:
+        in_bin = [
+            r for r in records
+            if r.get("probability") is not None and b_low <= float(r["probability"]) <= b_high
+        ]
+        n = len(in_bin)
+        if n == 0:
+            results.append({
+                "bin_label": label,
+                "bin_range": (b_low, b_high),
+                "count": 0,
+                "mean_predicted_prob": 0.0,
+                "actual_win_rate": 0.0,
+                "calibration_error": 0.0,
+                "avg_odd": 0.0,
+                "pnl": 0.0,
+                "roi": 0.0,
+            })
+            continue
+
+        pred_probs = [float(r["probability"]) for r in in_bin]
+        mean_prob = sum(pred_probs) / n
+
+        perf = compute_roi_and_pnl(in_bin)
+        actual_wr = perf["win_rate_decided"] / 100.0
+        calib_error = abs(mean_prob - actual_wr)
+
+        results.append({
+            "bin_label": label,
+            "bin_range": (b_low, b_high),
+            "count": n,
+            "mean_predicted_prob": round(mean_prob * 100.0, 2),
+            "actual_win_rate": round(actual_wr * 100.0, 2),
+            "calibration_error": round(calib_error * 100.0, 2),
+            "avg_odd": perf["avg_odd"],
+            "pnl": perf["pnl"],
+            "roi": perf["roi"],
+        })
+
+    return results

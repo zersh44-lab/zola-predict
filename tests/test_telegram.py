@@ -131,3 +131,6 @@ def test_send_fixture_report(repo, monkeypatch):
     assert "Arsenal" in text
     assert "Chelsea" in text
     assert "HIGH-CONFIDENCE REPORT" in text
+    # When no odds provided, telegram output strictly displays skip and cannot bypass odds requirement
+    assert "NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH." in text
+    assert "DOUBLE_CHANCE" not in text

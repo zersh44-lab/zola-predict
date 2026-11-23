@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from zola.prediction.base import ModelPrediction
+from zola.prediction.calibration import compute_expected_value, is_subtype_approved
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,9 @@ MARKET_EMPIRICAL_WIN_RATES: Dict[str, float] = {
     "OU35": 0.650,         # Over/Under 3.5 (Disabled)
 }
 
-# Strict Active Market Allowlist (Only top-3 empirically verified markets active)
-APPROVED_HIGH_CONFIDENCE_MARKETS: set[str] = {"OU05", "OU15", "DOUBLE_CHANCE"}
-DISABLED_MARKETS: set[str] = {"1X2", "BTTS", "OU25", "OU35", "DNB"}
+# Strict Active Market Allowlist (Only empirically verified markets active)
+APPROVED_HIGH_CONFIDENCE_MARKETS: set[str] = {"OU05", "OU15"}
+DISABLED_MARKETS: set[str] = {"1X2", "BTTS", "OU25", "OU35", "DNB", "DOUBLE_CHANCE"}
 
 # Strict Minimum Quality Gates
 MIN_PROBABILITY_THRESHOLD = 0.60
@@ -56,6 +57,14 @@ class HighConfidencePick:
     rationale: str
     risks: str
     quality_score: float
+    expected_value: Optional[float] = None
+    expected_value_pct: Optional[str] = None
+    market_odd: Optional[float] = None
+    is_experimental: bool = False
+    betting_value_status: str = "UNVERIFIED"
+    probability_source: str = "STATISTICAL_ENSEMBLE_CONSENSUS"
+    odds_source: str = "VERIFIED_PRE_MATCH_BOOKMAKER"
+    is_verified_odds: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -86,6 +95,102 @@ class HighConfidenceSelector:
     """Evaluates ensemble predictions against strict statistical, risk, and correlation gates."""
 
     @classmethod
+    def _extract_and_validate_odds(
+        cls,
+        pred: ModelPrediction,
+        market: str,
+        outcome: str,
+        odds_data: Optional[Dict[str, Any]] = None,
+        fixture: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Optional[float], bool, Optional[str]]:
+        """Extract and validate pre-match bookmaker decimal odd against strict authenticity checks.
+
+        Returns:
+            (odd_val, is_valid, rejection_reason)
+        """
+        raw_odd: Optional[float] = None
+
+        if odds_data and market in odds_data:
+            odds_item = odds_data[market]
+            if isinstance(odds_item, dict):
+                # 1. Reject synthetic / estimated odds
+                if odds_item.get("is_synthetic") is True or odds_item.get("synthetic") is True:
+                    return None, False, f"{market} rejected: Synthetic odds cannot be treated as verified bookmaker odds."
+                if str(odds_item.get("source", "")).lower() in ("synthetic", "estimated", "fair_odd", "model"):
+                    return None, False, f"{market} rejected: Synthetic or estimated odds cannot be treated as verified bookmaker odds."
+                if str(odds_item.get("status", "")).upper() in ("SYNTHETIC", "ESTIMATED"):
+                    return None, False, f"{market} rejected: Synthetic or estimated odds cannot be treated as verified bookmaker odds."
+                if odds_item.get("is_estimated") is True or odds_item.get("estimated") is True:
+                    return None, False, f"{market} rejected: Estimated odds cannot be treated as verified bookmaker odds."
+
+                # 2. Reject post-kickoff / in-play odds
+                if odds_item.get("is_post_kickoff") is True or odds_item.get("post_kickoff") is True:
+                    return None, False, f"{market} rejected: Odds captured after kickoff cannot be used for pre-match predictions."
+                if odds_item.get("in_play") is True or odds_item.get("live") is True or odds_item.get("is_in_play") is True:
+                    return None, False, f"{market} rejected: Live in-play odds captured after kickoff cannot be used for pre-match predictions."
+                if str(odds_item.get("status", "")).upper() in ("IN_PLAY", "LIVE", "POST_KICKOFF"):
+                    return None, False, f"{market} rejected: Live in-play odds cannot be used for pre-match predictions."
+
+                # 3. Reject stale odds
+                if odds_item.get("is_stale") is True or odds_item.get("stale") is True:
+                    return None, False, f"{market} rejected: Stale bookmaker odds detected."
+                if str(odds_item.get("status", "")).upper() == "STALE":
+                    return None, False, f"{market} rejected: Stale bookmaker odds detected."
+
+                # 4. Check timestamp comparison if captured_at is provided
+                captured_at = odds_item.get("captured_at")
+                kickoff_utc = (fixture.get("utc_date") if fixture else None) or odds_item.get("kickoff_utc")
+                if captured_at and kickoff_utc:
+                    try:
+                        from datetime import datetime
+                        cap_dt = datetime.fromisoformat(str(captured_at).replace("Z", "+00:00"))
+                        k_dt = datetime.fromisoformat(str(kickoff_utc).replace("Z", "+00:00"))
+                        if cap_dt >= k_dt:
+                            return None, False, f"{market} rejected: Odds captured after kickoff ({captured_at} >= {kickoff_utc}) cannot be used."
+                    except Exception:
+                        pass
+
+                raw = odds_item.get(outcome) or odds_item.get("market_odd") or odds_item.get("odd")
+                if raw is not None:
+                    try:
+                        raw_odd = float(raw)
+                    except (ValueError, TypeError):
+                        pass
+            elif isinstance(odds_item, (int, float)):
+                raw_odd = float(odds_item)
+
+        # Fallback to prediction value_analysis if not in odds_data
+        if raw_odd is None and hasattr(pred, "value_analysis") and pred.value_analysis:
+            va = pred.value_analysis
+            if isinstance(va, dict):
+                if va.get("is_synthetic") is True or str(va.get("status", "")).upper() == "SYNTHETIC":
+                    return None, False, f"{market} rejected: Synthetic odds cannot be treated as verified bookmaker odds."
+                if str(va.get("source", "")).lower() in ("synthetic", "estimated", "fair_odd"):
+                    return None, False, f"{market} rejected: Estimated odds cannot be treated as verified bookmaker odds."
+                if va.get("status") == "AVAILABLE":
+                    raw = va.get("market_odd")
+                    if raw is not None:
+                        try:
+                            raw_odd = float(raw)
+                        except (ValueError, TypeError):
+                            pass
+
+        # Check fixture status for post-kickoff
+        if fixture:
+            f_status = str(fixture.get("status", "")).upper()
+            if f_status in ("IN_PLAY", "LIVE", "PAUSED", "FINISHED", "COMPLETED"):
+                return None, False, f"{market} rejected: Fixture is already in-play or completed ({f_status}); pre-match odds invalid."
+
+        if raw_odd is None:
+            return None, False, f"{market} rejected: Missing pre-match bookmaker odds (strict odds requirement enabled)."
+
+        import math
+        if math.isnan(raw_odd) or math.isinf(raw_odd) or raw_odd <= 1.0:
+            return None, False, f"{market} rejected: Invalid bookmaker odd ({raw_odd}). Odds must be numeric and > 1.0."
+
+        return raw_odd, True, None
+
+    @classmethod
     def evaluate_fixture(
         cls,
         fixture: Dict[str, Any],
@@ -94,6 +199,9 @@ class HighConfidenceSelector:
         home_form: Optional[List[str]] = None,
         away_form: Optional[List[str]] = None,
         h2h_summary: Optional[Dict[str, Any]] = None,
+        odds_data: Optional[Dict[str, Any]] = None,
+        require_valid_odds: bool = True,
+        min_ev_margin: float = 0.0,
     ) -> MatchHighConfidenceReport:
         """Analyze all markets and return 1-3 high-confidence picks or a structured SKIP report."""
         fid = fixture.get("id") or 0
@@ -112,54 +220,14 @@ class HighConfidenceSelector:
         skip_reasons: List[str] = []
 
         # -------------------------------------------------------------
-        # 1. Evaluate DOUBLE CHANCE (High Empirical Priority: 79.2% WR)
+        # 1. Evaluate DOUBLE CHANCE (Strict Policy: DISABLED)
         # -------------------------------------------------------------
         if "DOUBLE_CHANCE" in ensemble_predictions:
             pred_dc = ensemble_predictions["DOUBLE_CHANCE"]
             dc_pick = pred_dc.predicted_outcome
-            dc_prob = pred_dc.probability
-            p_1x2 = ensemble_predictions.get("1X2")
-            draw_prob = p_1x2.probabilities.get("DRAW", 0.28) if p_1x2 else 0.28
-
-            if dc_prob >= 0.70 and pred_dc.confidence in ("HIGH", "MEDIUM"):
-                if dc_pick in ("1X", "X2"):
-                    favored_team = h_name if dc_pick == "1X" else a_name
-                    outcome_disp = f"{favored_team} or Draw ({dc_pick})"
-                    
-                    # Rationale construction
-                    fav_form = home_form if dc_pick == "1X" else away_form
-                    wins_in_form = (fav_form or []).count("W")
-                    draws_in_form = (fav_form or []).count("D")
-                    rationale = (
-                        f"{favored_team} covers win or draw with {dc_prob * 100:.1f}% estimated probability. "
-                        f"Recent form ({''.join(fav_form or ['N/A'])}) demonstrates resilience ({wins_in_form}W-{draws_in_form}D), "
-                        f"providing dual-scenario protection against draw volatility ({draw_prob * 100:.1f}% draw risk)."
-                    )
-                    
-                    # Risk identification
-                    risks = (
-                        f"Underdog counter-attack threat; outright loss busts both win and draw legs. "
-                        f"Draw risk remains moderate at {draw_prob * 100:.1f}%."
-                    )
-
-                    q_score = (dc_prob * 0.40) + (pred_dc.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["DOUBLE_CHANCE"] * 0.25)
-
-                    candidates.append({
-                        "market": "DOUBLE_CHANCE",
-                        "market_label": "Double Chance",
-                        "predicted_outcome": dc_pick,
-                        "outcome_display": outcome_disp,
-                        "probability": dc_prob,
-                        "confidence": pred_dc.confidence,
-                        "confidence_score": pred_dc.confidence_score,
-                        "rationale": rationale,
-                        "risks": risks,
-                        "quality_score": q_score,
-                        "category": "OUTCOME",
-                    })
-            else:
-                if dc_prob < 0.70:
-                    skip_reasons.append(f"Double Chance margin ({dc_prob * 100:.1f}%) is below 70% threshold.")
+            skip_reasons.append(
+                f"Double Chance ({dc_pick}) blocked: Market disabled under strict policy (only OU05 and OU15 approved)."
+            )
 
         # -------------------------------------------------------------
         # 2. Evaluate OVER 1.5 GOALS (High Empirical Priority: 84.6% WR)
@@ -169,80 +237,100 @@ class HighConfidenceSelector:
             o15_pick = pred_ou15.predicted_outcome
             o15_prob = pred_ou15.probability
 
-            if o15_pick == "OVER_15" and o15_prob >= 0.70 and pred_ou15.confidence in ("HIGH", "MEDIUM"):
-                xg_str = f"Combined xG is {tot_xg:.2f}" if tot_xg else "Offensive goal rates support multiple scoring chances"
-                rationale = (
-                    f"Over 1.5 Goals backed by {o15_prob * 100:.1f}% probability and strong goal metrics. "
-                    f"{xg_str}. Historical conversion in this bracket exceeds 84% reliability."
+            is_app, app_reason = is_subtype_approved("OU15", o15_pick)
+            if not is_app:
+                skip_reasons.append(f"OU15 ({o15_pick}) rejected: {app_reason}")
+            elif o15_pick == "OVER_15" and o15_prob >= 0.70 and pred_ou15.confidence in ("HIGH", "MEDIUM"):
+                m_odd, is_odd_valid, odd_rej_reason = cls._extract_and_validate_odds(
+                    pred_ou15, "OU15", o15_pick, odds_data, fixture
                 )
-                risks = (
-                    "Early red card, ultra-defensive game state, or poor finishing could suppress goals to 0-0 or 1-0."
-                )
-                q_score = (o15_prob * 0.40) + (pred_ou15.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["OU15"] * 0.25)
+                ev = compute_expected_value(o15_prob, m_odd) if (m_odd and is_odd_valid) else None
 
-                candidates.append({
-                    "market": "OU15",
-                    "market_label": "Total Goals",
-                    "predicted_outcome": "OVER_15",
-                    "outcome_display": "Over 1.5 Goals",
-                    "probability": o15_prob,
-                    "confidence": pred_ou15.confidence,
-                    "confidence_score": pred_ou15.confidence_score,
-                    "rationale": rationale,
-                    "risks": risks,
-                    "quality_score": q_score,
-                    "category": "GOALS",
-                })
-            elif o15_pick == "UNDER_15":
-                # Under 1.5 is inherently high variance; require extreme probability
-                if o15_prob >= 0.75 and pred_ou15.confidence == "HIGH":
+                if require_valid_odds and not is_odd_valid:
+                    skip_reasons.append(odd_rej_reason or "Over 1.5 Goals rejected: Missing valid pre-match odds.")
+                elif require_valid_odds and (ev is None or ev < min_ev_margin or ev <= 0.0):
+                    ev_str = f"{ev*100:+.1f}%" if ev is not None else "N/A"
+                    skip_reasons.append(f"Over 1.5 Goals rejected: Expected Value ({ev_str}) is not positive (positive EV required).")
+                else:
+                    xg_str = f"Combined xG is {tot_xg:.2f}" if tot_xg else "Offensive goal rates support multiple scoring chances"
+                    ev_info = f" Verified pre-match odd @ {m_odd:.2f} offers positive EV ({ev*100:+.1f}%)." if (m_odd and ev) else ""
+                    rationale = (
+                        f"Over 1.5 Goals backed by {o15_prob * 100:.1f}% model probability and strong goal metrics.{ev_info} "
+                        f"{xg_str}. Historical conversion in this bracket exceeds 84% reliability."
+                    )
+                    risks = (
+                        "Early red card, ultra-defensive game state, or poor finishing could suppress goals to 0-0 or 1-0."
+                    )
+                    q_score = (o15_prob * 0.40) + (pred_ou15.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["OU15"] * 0.25)
+
                     candidates.append({
                         "market": "OU15",
                         "market_label": "Total Goals",
-                        "predicted_outcome": "UNDER_15",
-                        "outcome_display": "Under 1.5 Goals",
+                        "predicted_outcome": "OVER_15",
+                        "outcome_display": "Over 1.5 Goals",
                         "probability": o15_prob,
                         "confidence": pred_ou15.confidence,
                         "confidence_score": pred_ou15.confidence_score,
-                        "rationale": f"Extremely low expected scoring profile ({tot_xg:.2f} xG if available). Both defenses hold elite suppression rates.",
-                        "risks": "One fluke or deflection can immediately shatter an Under 1.5 position.",
-                        "quality_score": (o15_prob * 0.40) + (pred_ou15.confidence_score * 0.35) + 0.60 * 0.25,
+                        "market_odd": m_odd,
+                        "expected_value": ev,
+                        "is_verified_odds": is_odd_valid,
+                        "rationale": rationale,
+                        "risks": risks,
+                        "quality_score": q_score,
                         "category": "GOALS",
                     })
-                else:
-                    skip_reasons.append(f"Under 1.5 carries extreme variance and lacks >= 75% conviction.")
 
         # -------------------------------------------------------------
         # 3. Evaluate OVER 0.5 GOALS (Benchmark Safe Floor: 96.1% WR)
         # -------------------------------------------------------------
         if "OU05" in ensemble_predictions:
             pred_ou05 = ensemble_predictions["OU05"]
+            o05_pick = pred_ou05.predicted_outcome
             o05_prob = pred_ou05.probability
-            if pred_ou05.predicted_outcome == "OVER_05" and o05_prob >= 0.88 and pred_ou05.confidence in ("HIGH", "MEDIUM"):
-                rationale = (
-                    f"Over 0.5 Goals offers an elite statistical safety floor at {o05_prob * 100:.1f}% probability. "
-                    f"Historical success rate across our tracking sits at 96.1%."
-                )
-                risks = "A complete scoreless 0-0 stalemate."
-                q_score = (o05_prob * 0.38) + (pred_ou05.confidence_score * 0.34) + (MARKET_EMPIRICAL_WIN_RATES["OU05"] * 0.28)
 
-                candidates.append({
-                    "market": "OU05",
-                    "market_label": "Total Goals",
-                    "predicted_outcome": "OVER_05",
-                    "outcome_display": "Over 0.5 Goals",
-                    "probability": o05_prob,
-                    "confidence": pred_ou05.confidence,
-                    "confidence_score": pred_ou05.confidence_score,
-                    "rationale": rationale,
-                    "risks": risks,
-                    "quality_score": q_score,
-                    "category": "GOALS_FLOOR",
-                })
+            is_app, app_reason = is_subtype_approved("OU05", o05_pick)
+            if not is_app:
+                skip_reasons.append(f"OU05 ({o05_pick}) rejected: {app_reason}")
+            elif o05_pick == "OVER_05" and o05_prob >= 0.88 and pred_ou05.confidence in ("HIGH", "MEDIUM"):
+                m_odd, is_odd_valid, odd_rej_reason = cls._extract_and_validate_odds(
+                    pred_ou05, "OU05", o05_pick, odds_data, fixture
+                )
+                ev = compute_expected_value(o05_prob, m_odd) if (m_odd and is_odd_valid) else None
+
+                if require_valid_odds and not is_odd_valid:
+                    skip_reasons.append(odd_rej_reason or "Over 0.5 Goals rejected: Missing valid pre-match odds.")
+                elif require_valid_odds and (ev is None or ev < min_ev_margin or ev <= 0.0):
+                    ev_str = f"{ev*100:+.1f}%" if ev is not None else "N/A"
+                    skip_reasons.append(f"Over 0.5 Goals rejected: Expected Value ({ev_str}) is not positive (positive EV required).")
+                else:
+                    ev_info = f" Verified pre-match odd @ {m_odd:.2f} offers positive EV ({ev*100:+.1f}%)." if (m_odd and ev) else ""
+                    rationale = (
+                        f"Over 0.5 Goals offers an elite statistical safety floor at {o05_prob * 100:.1f}% model probability.{ev_info} "
+                        f"Historical success rate across our tracking sits at 96.1%."
+                    )
+                    risks = "A complete scoreless 0-0 stalemate."
+                    q_score = (o05_prob * 0.38) + (pred_ou05.confidence_score * 0.34) + (MARKET_EMPIRICAL_WIN_RATES["OU05"] * 0.28)
+
+                    candidates.append({
+                        "market": "OU05",
+                        "market_label": "Total Goals",
+                        "predicted_outcome": "OVER_05",
+                        "outcome_display": "Over 0.5 Goals",
+                        "probability": o05_prob,
+                        "confidence": pred_ou05.confidence,
+                        "confidence_score": pred_ou05.confidence_score,
+                        "market_odd": m_odd,
+                        "expected_value": ev,
+                        "is_verified_odds": is_odd_valid,
+                        "rationale": rationale,
+                        "risks": risks,
+                        "quality_score": q_score,
+                        "category": "GOALS_FLOOR",
+                    })
 
         # -------------------------------------------------------------
-        # 4. Enforce Active Market Allowlist (OU05, OU15, DOUBLE_CHANCE only)
-        # Temporarily disabled: 1X2, BTTS, OU25, OU35, DNB
+        # 4. Enforce Active Market Allowlist (OU05, OU15 only)
+        # Blocked: 1X2, BTTS, OU25, OU35, DNB, DOUBLE_CHANCE
         # -------------------------------------------------------------
         candidates = [c for c in candidates if c["market"] in APPROVED_HIGH_CONFIDENCE_MARKETS]
 
@@ -319,7 +407,9 @@ class HighConfidenceSelector:
         for i, item in enumerate(selected[:3], 1):
             prob = item["probability"]
             fair_odd = round(1.0 / max(0.01, prob), 2)
-            est_odd = round(fair_odd * 1.04, 2)  # Benchmark ~4% margin bookmaker benchmark
+            actual_odd = item.get("market_odd")
+            est_odd = round(actual_odd, 2) if actual_odd is not None else round(fair_odd * 1.04, 2)
+            ev = item.get("expected_value")
 
             final_picks.append(
                 HighConfidencePick(
@@ -337,6 +427,14 @@ class HighConfidenceSelector:
                     rationale=item["rationale"],
                     risks=item["risks"],
                     quality_score=round(item["quality_score"], 3),
+                    expected_value=round(ev, 4) if ev is not None else None,
+                    expected_value_pct=f"{ev * 100:+.1f}%" if ev is not None else None,
+                    market_odd=actual_odd,
+                    is_experimental=False,
+                    betting_value_status="VERIFIED_POSITIVE_EV" if (ev is not None and ev > 0) else "NO_VERIFIED_VALUE",
+                    probability_source="STATISTICAL_ENSEMBLE_CONSENSUS",
+                    odds_source="VERIFIED_PRE_MATCH_BOOKMAKER" if item.get("is_verified_odds") else "UNVERIFIED",
+                    is_verified_odds=bool(item.get("is_verified_odds")),
                 )
             )
 

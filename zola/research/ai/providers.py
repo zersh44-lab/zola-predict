@@ -64,7 +64,7 @@ class StatisticalFallbackProvider(BaseAiProvider):
         lines = [
             f"### Research Brief: {home_team} vs {away_team}",
             f"- **Competition**: {competition} ({date_str})",
-            "- **Active Market Policy**: Prioritizing verified high-win-rate markets (`DOUBLE_CHANCE`, `OU15`, `OU05`). High-loss markets (`1X2`, `BTTS`, `OU25`, `OU35`, `DNB`) are strictly excluded.",
+            "- **Active Market Policy**: Prioritizing verified high-win-rate markets (`OU15`, `OU05`). High-loss and uncalibrated markets (`DOUBLE_CHANCE`, `1X2`, `BTTS`, `OU25`, `OU35`, `DNB`) are strictly excluded.",
         ]
 
         if hc_report and hc_report.get("is_skipped"):
@@ -74,14 +74,14 @@ class StatisticalFallbackProvider(BaseAiProvider):
             for pick in hc_report.get("picks", []):
                 lines.append(f"  • **{pick.get('outcome_display')}** ({pick.get('probability_pct')} prob, {pick.get('confidence')} Conf, @ {pick.get('estimated_odd')})")
         else:
-            if m_dc:
-                dc_pick = m_dc.get("predicted_outcome") if isinstance(m_dc, dict) else getattr(m_dc, "predicted_outcome", "N/A")
-                dc_prob = m_dc.get("probability", 0) if isinstance(m_dc, dict) else getattr(m_dc, "probability", 0)
-                lines.append(f"- **Double Chance Forecast**: **{dc_pick}** ({dc_prob * 100:.1f}%)")
             if m_ou15:
                 o15_pick = m_ou15.get("predicted_outcome") if isinstance(m_ou15, dict) else getattr(m_ou15, "predicted_outcome", "N/A")
                 o15_prob = m_ou15.get("probability", 0) if isinstance(m_ou15, dict) else getattr(m_ou15, "probability", 0)
                 lines.append(f"- **Over/Under 1.5 Goals**: **{o15_pick}** ({o15_prob * 100:.1f}%)")
+            if m_ou05:
+                o05_pick = m_ou05.get("predicted_outcome") if isinstance(m_ou05, dict) else getattr(m_ou05, "predicted_outcome", "N/A")
+                o05_prob = m_ou05.get("probability", 0) if isinstance(m_ou05, dict) else getattr(m_ou05, "probability", 0)
+                lines.append(f"- **Over 0.5 Goals**: **{o05_pick}** ({o05_prob * 100:.1f}%)")
 
         return "\n".join(lines)
 

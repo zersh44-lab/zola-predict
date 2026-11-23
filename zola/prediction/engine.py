@@ -157,6 +157,8 @@ class PredictionEngine:
             home_form=h_form,
             away_form=a_form,
             h2h_summary=h2h_sum,
+            odds_data=odds_data,
+            require_valid_odds=True,
         )
 
         high_conf_picks_map = {p.market: p for p in high_conf_report.picks}

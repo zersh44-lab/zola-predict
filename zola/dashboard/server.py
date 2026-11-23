@@ -415,8 +415,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": "Fixture not found"}, 404)
                     return
 
+                odds_data = None
+                raw_odds = query.get("odds", [None])[0]
+                if raw_odds:
+                    try:
+                        odds_data = json.loads(raw_odds)
+                    except Exception:
+                        pass
+
                 engine = PredictionEngine(repo)
-                results = engine.predict_fixture(int(fid_raw), persist=True)
+                results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
                 serialized = _serialize_predictions(results)
 
                 smart_routing = None
@@ -513,6 +521,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         home_form=h_stats.get("form", []),
                         away_form=a_stats.get("form", []),
                         h2h_summary=h2h_summary,
+                        odds_data=odds_data,
+                        require_valid_odds=True,
                     ).to_dict()
 
                 self._send_json({

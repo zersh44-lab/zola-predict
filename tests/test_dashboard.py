@@ -117,11 +117,29 @@ def test_api_predict_fixture(test_dashboard_server):
         assert "away_form" in data
         assert "h2h" in data
         assert "comparison_stats" in data
+        assert "high_confidence_report" in data
+        hc = data["high_confidence_report"]
+        # Strict odds requirement: No odds provided -> must be SKIPPED
+        assert hc["is_skipped"] is True
+        assert hc["skip_reason"] == "NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH."
+        assert hc["total_picks"] == 0
+
         preds = data["predictions"]
         assert "ensemble" in preds
         assert "poisson" in preds
         assert "1X2" in preds["ensemble"]
         assert "BTTS" in preds["ensemble"]
+
+    # Predict fixture ID 1 with synthetic odds -> must be SKIPPED
+    synth_odds = json.dumps({"OU15": {"OVER_15": 1.45, "is_synthetic": True}})
+    synth_encoded = urllib.parse.quote(synth_odds)
+    req_synth = urllib.request.Request(f"{base_url}/api/predict?id=1&odds={synth_encoded}")
+    with urllib.request.urlopen(req_synth, timeout=5) as resp:
+        assert resp.status == 200
+        data_synth = json.loads(resp.read().decode("utf-8"))
+        hc_synth = data_synth["high_confidence_report"]
+        assert hc_synth["is_skipped"] is True
+        assert hc_synth["skip_reason"] == "NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH."
 
 
 def test_api_evaluate_predictions(test_dashboard_server):
