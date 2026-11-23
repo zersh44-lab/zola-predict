@@ -207,10 +207,7 @@ class ApiSportsClient(BaseFootballClient):
                 )
                 return fixtures, from_cache, elapsed_ms
             except FootballApiError as e:
-                err_text = str(e).lower()
-                if "plan" in err_text:
-                    logger.warning("API-Football plan limitation on date %s: %s", date, e)
-                    return [], False, 0
+                logger.error("API-Football error querying fixtures for date %s: %s", date, e)
                 raise
 
         # Path B: Competition query by league & season

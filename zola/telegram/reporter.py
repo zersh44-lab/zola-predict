@@ -10,6 +10,9 @@ import requests
 from zola.config import Settings
 from zola.database.repository import FootballRepository
 from zola.prediction.engine import PredictionEngine
+from zola.validation.datetime import format_kickoff_ethiopia, format_kickoff_utc, parse_to_utc
+from zola.validation.fixture import validate_fixture_for_prediction
+from zola.validation.odds import APPROVED_MARKETS, calculate_expected_value
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +165,58 @@ class TelegramReportSender:
             repository.touch_telegram_recipient(resolved_cid)
         return ok
 
+    def validate_report_payload(
+        self,
+        fixture: Dict[str, Any],
+        hc_report: Optional[Dict[str, Any]],
+    ) -> Tuple[bool, Optional[str]]:
+        """Validate all required fields before allowing Telegram publication.
+
+        The published report must contain:
+        - Correct competition
+        - Correct home and away teams
+        - Correct match date and kickoff time
+        - Correct approved market (OU05, OU15)
+        - Correct probability
+        - Correct verified odds (> 1.01)
+        - Correct positive EV (> 0.0)
+        - Correct confidence status
+        """
+        # 1. Validate fixture
+        is_fix_valid, fix_rej = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+        if not is_fix_valid:
+            return False, f"Publication blocked: {fix_rej}"
+
+        if not hc_report:
+            return False, "Publication blocked: Missing high-confidence evaluation report."
+
+        # If report is skipped, skip card is valid to publish
+        if hc_report.get("is_skipped"):
+            return True, None
+
+        picks = hc_report.get("picks", [])
+        if not picks:
+            return False, "Publication blocked: Report has no picks and is not marked as skipped."
+
+        for pick in picks:
+            market = pick.get("market")
+            if market not in APPROVED_MARKETS:
+                return False, f"Publication blocked: Unapproved market '{market}' in report picks."
+
+            prob = pick.get("probability")
+            if prob is None or not (0.0 < float(prob) < 1.0):
+                return False, f"Publication blocked: Invalid probability '{prob}' for {market}."
+
+            m_odd = pick.get("market_odd")
+            if m_odd is None or float(m_odd) <= 1.01:
+                return False, f"Publication blocked: Missing or invalid verified odds for {market}."
+
+            ev = pick.get("expected_value")
+            if ev is None or float(ev) <= 0.0:
+                return False, f"Publication blocked: Non-positive expected value ({ev}) for {market}."
+
+        return True, None
+
     def format_match_report(
         self,
         fixture: Dict[str, Any],
@@ -171,7 +226,13 @@ class TelegramReportSender:
         home_team = fixture.get("home_team_name", "Home Team")
         away_team = fixture.get("away_team_name", "Away Team")
         competition = fixture.get("competition_name", "League")
-        date_str = str(fixture.get("utc_date", ""))[:16].replace("T", " ")
+        raw_utc = fixture.get("utc_date", "")
+        try:
+            eat_str = format_kickoff_ethiopia(raw_utc)
+            utc_str = format_kickoff_utc(raw_utc)[:16].replace("T", " ") + " UTC"
+        except Exception:
+            utc_str = str(raw_utc)[:16].replace("T", " ") + " UTC"
+            eat_str = ""
 
         ensemble = predictions.get("ensemble", {})
 
@@ -188,31 +249,39 @@ class TelegramReportSender:
             "━━━━━━━━━━━━━━━━━━━━",
             f"🏆 *{competition}*",
             f"⚔️ *{home_team} vs {away_team}*",
-            f"📅 `{date_str} UTC`",
+            f"📅 `{utc_str}`" + (f" (`{eat_str}`)" if eat_str else ""),
             "",
         ]
 
-        if hc_report and hc_report.get("is_skipped"):
+        if not hc_report or hc_report.get("is_skipped") or not hc_report.get("picks"):
+            skip_msg = (
+                hc_report.get("skip_rationale")
+                if hc_report and hc_report.get("skip_rationale")
+                else "Match does not meet strict eligibility rules (verified odds, positive EV, approved market)."
+            )
             lines.extend([
                 "⚠️ *NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH.*",
-                f"💡 _{hc_report.get('skip_rationale', 'Insufficient statistical edge or high volatility.')}_",
+                f"💡 _{skip_msg}_",
                 "",
                 "🔒 _Market Policy: Only verified high-yield markets (OU05, OU15) with verified pre-match odds and positive EV are eligible._",
                 "ℹ️ _Note: Model probability is a statistical estimate and does not represent verified betting value without verified pre-match odds._",
             ])
-        elif hc_report and hc_report.get("picks"):
+        else:
             lines.append("🎯 *Selected High-Confidence Options (Max 3):*")
             for pick in hc_report.get("picks", []):
                 # Ensure market is strictly in approved allowlist
-                if pick.get("market") not in ("OU05", "OU15"):
+                if pick.get("market") not in APPROVED_MARKETS:
                     continue
                 rank = pick.get("rank", 1)
                 outcome = pick.get("outcome_display", "")
                 prob = pick.get("probability_pct", "")
                 conf = pick.get("confidence", "HIGH")
                 m_odd = pick.get("market_odd")
-                odd_str = f"@{m_odd:.2f}" if m_odd else f"@{pick.get('estimated_odd', '-')}"
-                ev_str = pick.get("expected_value_pct") or "N/A"
+                if not m_odd or float(m_odd) <= 1.01:
+                    continue
+                odd_str = f"@{float(m_odd):.2f}"
+                ev_val = pick.get("expected_value")
+                ev_str = f"{float(ev_val)*100:+.1f}%" if ev_val is not None else "N/A"
                 val_status = pick.get("betting_value_status", "VERIFIED_POSITIVE_EV")
                 rationale = pick.get("rationale", "")
                 risks = pick.get("risks", "")
@@ -224,20 +293,6 @@ class TelegramReportSender:
                     f"   • Key Risk: _{risks}_",
                     "",
                 ])
-        else:
-            # Fallback formatting strictly for approved markets only (OU15, OU05)
-            p_ou15 = ensemble.get("OU15")
-            p_ou05 = ensemble.get("OU05")
-            lines.append("📊 *Approved Market Analysis (OU15 / OU05):*")
-            if p_ou15:
-                o15_pick = p_ou15.predicted_outcome if hasattr(p_ou15, "predicted_outcome") else p_ou15.get("predicted_outcome", "N/A")
-                o15_prob = p_ou15.probability if hasattr(p_ou15, "probability") else p_ou15.get("probability", 0)
-                lines.append(f"• *Over/Under 1.5*: `{o15_pick}` ({o15_prob*100:.1f}%)")
-            if p_ou05:
-                o05_pick = p_ou05.predicted_outcome if hasattr(p_ou05, "predicted_outcome") else p_ou05.get("predicted_outcome", "N/A")
-                o05_prob = p_ou05.probability if hasattr(p_ou05, "probability") else p_ou05.get("probability", 0)
-                lines.append(f"• *Over 0.5*: `{o05_pick}` ({o05_prob*100:.1f}%)")
-            lines.append("")
 
         lines.extend([
             "━━━━━━━━━━━━━━━━━━━━",
@@ -261,8 +316,26 @@ class TelegramReportSender:
         if not fixture:
             raise ValueError(f"Fixture ID {fixture_id} not found.")
 
+        # Strict fixture integrity validation before predicting or publishing
+        is_fix_valid, fix_rej = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+        if not is_fix_valid:
+            raise ValueError(f"Telegram publication blocked: {fix_rej}")
+
         engine = PredictionEngine(repository)
         predictions = engine.predict_fixture(fixture_id, persist=True)
+
+        # Extract high-confidence report for verification
+        hc_report = None
+        for p in predictions.get("ensemble", {}).values():
+            feat = p.get("features", {}) if isinstance(p, dict) else (getattr(p, "features", {}) or {})
+            if isinstance(feat, dict) and "high_confidence_report" in feat:
+                hc_report = feat["high_confidence_report"]
+                break
+
+        # Validate publication payload against verified data
+        is_pub_valid, pub_rej = self.validate_report_payload(fixture, hc_report)
+        if not is_pub_valid:
+            raise ValueError(f"Telegram publication blocked: {pub_rej}")
 
         card_text = self.format_match_report(fixture, predictions)
         ok = self.send_message(chat_id=resolved_cid, text=card_text)

@@ -322,7 +322,7 @@ class FootballRepository:
             JOIN teams ht ON f.home_team_id = ht.id
             JOIN teams at ON f.away_team_id = at.id
             LEFT JOIN match_results mr ON f.id = mr.fixture_id
-            WHERE 1=1
+            WHERE 1=1 AND f.status NOT LIKE 'INVALID%'
         """
         params: List[Any] = []
         if competition_id is not None:
@@ -1062,6 +1062,12 @@ class FootballRepository:
             JOIN predictions p ON f.id = p.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
               AND p.model_name = 'ensemble'
+              AND f.status NOT LIKE 'INVALID%'
+              AND p.status != 'INVALID'
+              AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
+              AND f.status NOT LIKE 'INVALID%'
+              AND p.status != 'INVALID'
+              AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
             GROUP BY match_date
             ORDER BY match_date DESC
             LIMIT 50;
@@ -1088,6 +1094,9 @@ class FootballRepository:
             JOIN predictions p ON f.id = p.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
               AND p.model_name = 'ensemble'
+              AND f.status NOT LIKE 'INVALID%'
+              AND p.status != 'INVALID'
+              AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
         """
         sum_params: List[Any] = []
         if is_date_active:
@@ -1149,7 +1158,14 @@ class FootballRepository:
             JOIN teams at ON f.away_team_id = at.id
             JOIN match_results mr ON f.id = mr.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
-              AND EXISTS (SELECT 1 FROM predictions p WHERE p.fixture_id = f.id)
+              AND f.status NOT LIKE 'INVALID%'
+              AND (mr.winner != 'VOID' OR mr.winner IS NULL)
+              AND EXISTS (
+                  SELECT 1 FROM predictions p
+                  WHERE p.fixture_id = f.id
+                    AND p.status != 'INVALID'
+                    AND (p.settlement_status != 'VOID' OR p.settlement_status IS NULL)
+              )
         """
         params: List[Any] = []
 
@@ -1207,6 +1223,8 @@ class FootballRepository:
                        settlement_status, is_correct, features_json
                 FROM predictions
                 WHERE fixture_id = ? AND model_name = 'ensemble'
+                  AND status != 'INVALID'
+                  AND (settlement_status != 'VOID' OR settlement_status IS NULL)
             """
             p_params: List[Any] = [fid]
             if market_filter and market_filter != "all":

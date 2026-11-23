@@ -20,6 +20,8 @@ from zola.prediction.form_momentum import FormMomentumModel
 from zola.prediction.head_to_head import HeadToHeadModel
 from zola.prediction.poisson import PoissonModel
 from zola.prediction.value import analyze_market_value
+from zola.validation.fixture import validate_fixture_for_prediction
+from zola.validation.odds import APPROVED_MARKETS
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,11 @@ class PredictionEngine:
         fixture = self.repository.get_fixture_by_id(fixture_id)
         if not fixture:
             raise ValueError(f"Fixture with ID {fixture_id} not found in database.")
+
+        # Strict Fixture Data Integrity Check
+        is_fix_valid, fix_rej = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+        if not is_fix_valid:
+            raise ValueError(f"Fixture {fixture_id} rejected by data integrity validation: {fix_rej}")
 
         home_team_id = fixture["home_team_id"]
         away_team_id = fixture["away_team_id"]
@@ -221,9 +228,10 @@ class PredictionEngine:
         query = """
             SELECT f.id FROM fixtures f
             WHERE f.status IN ('SCHEDULED', 'TIMED', 'TBD', 'NOT_STARTED')
+              AND f.status NOT LIKE 'INVALID%'
               AND f.utc_date >= ? AND f.utc_date <= ?
               AND NOT EXISTS (
-                  SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble'
+                  SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble' AND p.status != 'SKIPPED'
               )
         """
         params: List[Any] = [now_iso, end_iso]

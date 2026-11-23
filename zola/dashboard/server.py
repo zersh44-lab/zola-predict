@@ -21,6 +21,7 @@ from zola.prediction.engine import PredictionEngine
 from zola.research.ai import get_ai_provider
 from zola.research.ai.providers import _serialize_predictions
 from zola.telegram.reporter import TelegramReportSender
+from zola.validation.fixture import validate_fixture_for_prediction
 
 logger = logging.getLogger(__name__)
 
@@ -74,34 +75,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             repo = FootballRepository(conn)
             cursor = conn.cursor()
 
-            # 1. Reconcile known calendar match results
-            for ext_id, res in CALENDAR_RESULTS.items():
-                cursor.execute(
-                    """
-                    SELECT f.id, f.status, mr.id as mr_id
-                    FROM fixtures f
-                    LEFT JOIN match_results mr ON f.id = mr.fixture_id
-                    WHERE f.external_id = ?
-                    """,
-                    (ext_id,),
-                )
-                row = cursor.fetchone()
-                if row and (row["status"] != "FINISHED" or not row["mr_id"]):
-                    fid = row["id"]
-                    cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
-                    repo.upsert_match_result(
-                        MatchResult(
-                            fixture_id=fid,
-                            winner=res["winner"],
-                            duration="REGULAR",
-                            full_time_home_score=res["ft_h"],
-                            full_time_away_score=res["ft_a"],
-                            half_time_home_score=res["ht_h"],
-                            half_time_away_score=res["ht_a"],
-                        )
-                    )
-                    synced_count += 1
-            conn.commit()
+            # 1. Historical calendar reconciler permanently disabled for data integrity
 
             # 2. Fetch live finished fixtures across rolling 4-day window if API key available
             if settings.football_api_key:
@@ -442,6 +416,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 if not fixture:
                     self._send_json({"error": "Fixture not found"}, 404)
                     return
+
+                # Strict Fixture Data Integrity Check
+                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                if not is_valid:
+                    self._send_json({
+                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "is_skipped": True,
+                        "skip_reason": rej_reason,
+                    }, 400)
+                    return
                 self._send_json({"fixture": fixture})
             finally:
                 conn.close()
@@ -460,6 +444,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 fixture = repo.get_fixture_by_id(int(fid_raw))
                 if not fixture:
                     self._send_json({"error": "Fixture not found"}, 404)
+                    return
+
+                # Strict Fixture Data Integrity Check
+                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                if not is_valid:
+                    self._send_json({
+                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "is_skipped": True,
+                        "skip_reason": rej_reason,
+                    }, 400)
                     return
 
                 odds_data = None
@@ -599,6 +593,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 fixture = repo.get_fixture_by_id(int(fid_raw))
                 if not fixture:
                     self._send_json({"error": "Fixture not found"}, 404)
+                    return
+
+                # Strict Fixture Data Integrity Check
+                is_valid, rej_reason = validate_fixture_for_prediction(fixture, enforce_future_kickoff=False)
+                if not is_valid:
+                    self._send_json({
+                        "error": f"Fixture data integrity violation: {rej_reason}",
+                        "is_skipped": True,
+                        "skip_reason": rej_reason,
+                    }, 400)
                     return
 
                 engine = PredictionEngine(repo)

@@ -20,97 +20,13 @@ from zola.database.models import (
     Team,
 )
 from zola.database.repository import FootballRepository
+from zola.validation.fixture import is_synthetic_external_id
 
 logger = logging.getLogger(__name__)
 
 
-CALENDAR_FIXTURES: List[Dict[str, Any]] = [
-    # Saturday 2026-11-21
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_1", "date": "2026-11-21T12:30:00+00:00", "home": "Leicester", "away": "Chelsea", "venue": "King Power Stadium", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_2", "date": "2026-11-21T15:00:00+00:00", "home": "Arsenal", "away": "Nottingham Forest", "venue": "Emirates Stadium", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_3", "date": "2026-11-21T15:00:00+00:00", "home": "Aston Villa", "away": "Crystal Palace", "venue": "Villa Park", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_4", "date": "2026-11-21T15:00:00+00:00", "home": "Bournemouth", "away": "Brighton", "venue": "Vitality Stadium", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_5", "date": "2026-11-21T15:00:00+00:00", "home": "Everton", "away": "Brentford", "venue": "Goodison Park", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_6", "date": "2026-11-21T15:00:00+00:00", "home": "Fulham", "away": "Wolves", "venue": "Craven Cottage", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261121_7", "date": "2026-11-21T17:30:00+00:00", "home": "Manchester City", "away": "Tottenham", "venue": "Etihad Stadium", "matchday": 12},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261121_1", "date": "2026-11-21T13:00:00+00:00", "home": "Rayo Vallecano", "away": "Sevilla", "venue": "Campo de Vallecas", "matchday": 14},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261121_2", "date": "2026-11-21T15:15:00+00:00", "home": "Atletico Madrid", "away": "Alaves", "venue": "Civitas Metropolitano", "matchday": 14},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261121_3", "date": "2026-11-21T17:30:00+00:00", "home": "Las Palmas", "away": "Mallorca", "venue": "Gran Canaria", "matchday": 14},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261121_4", "date": "2026-11-21T20:00:00+00:00", "home": "Celta Vigo", "away": "Barcelona", "venue": "Balaidos", "matchday": 14},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261121_1", "date": "2026-11-21T14:00:00+00:00", "home": "Verona", "away": "Inter", "venue": "Marcantonio Bentegodi", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261121_2", "date": "2026-11-21T17:00:00+00:00", "home": "AC Milan", "away": "Juventus", "venue": "San Siro", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261121_3", "date": "2026-11-21T19:45:00+00:00", "home": "Parma", "away": "Atalanta", "venue": "Ennio Tardini", "matchday": 13},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_1", "date": "2026-11-21T14:30:00+00:00", "home": "Bayer Leverkusen", "away": "Heidenheim", "venue": "BayArena", "matchday": 11},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_2", "date": "2026-11-21T14:30:00+00:00", "home": "Borussia Dortmund", "away": "Freiburg", "venue": "Signal Iduna Park", "matchday": 11},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_3", "date": "2026-11-21T14:30:00+00:00", "home": "Hoffenheim", "away": "RB Leipzig", "venue": "PreZero Arena", "matchday": 11},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_4", "date": "2026-11-21T14:30:00+00:00", "home": "VfB Stuttgart", "away": "VfL Bochum", "venue": "MHPArena", "matchday": 11},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_5", "date": "2026-11-21T14:30:00+00:00", "home": "Wolfsburg", "away": "Union Berlin", "venue": "Volkswagen Arena", "matchday": 11},
-    {"comp_code": "BL1", "comp_name": "Bundesliga", "country": "Germany", "ext_id": "bl1_20261121_6", "date": "2026-11-21T17:30:00+00:00", "home": "Eintracht Frankfurt", "away": "Werder Bremen", "venue": "Deutsche Bank Park", "matchday": 11},
-
-    # Sunday 2026-11-22
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261122_1", "date": "2026-11-22T14:00:00+00:00", "home": "Southampton", "away": "Liverpool", "venue": "St Mary's Stadium", "matchday": 12},
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261122_2", "date": "2026-11-22T16:30:00+00:00", "home": "Ipswich", "away": "Manchester United", "venue": "Portman Road", "matchday": 12},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261122_1", "date": "2026-11-22T13:00:00+00:00", "home": "Osasuna", "away": "Villarreal", "venue": "El Sadar", "matchday": 14},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261122_2", "date": "2026-11-22T17:30:00+00:00", "home": "Leganes", "away": "Real Madrid", "venue": "Butarque", "matchday": 14},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261122_3", "date": "2026-11-22T20:00:00+00:00", "home": "Athletic Club", "away": "Real Sociedad", "venue": "San Mames", "matchday": 14},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261122_1", "date": "2026-11-22T11:30:00+00:00", "home": "Genoa", "away": "Cagliari", "venue": "Luigi Ferraris", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261122_2", "date": "2026-11-22T14:00:00+00:00", "home": "Como", "away": "Fiorentina", "venue": "Giuseppe Sinigaglia", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261122_3", "date": "2026-11-22T14:00:00+00:00", "home": "Torino", "away": "Monza", "venue": "Olimpico Grande Torino", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261122_4", "date": "2026-11-22T17:00:00+00:00", "home": "Napoli", "away": "Roma", "venue": "Diego Armando Maradona", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261122_5", "date": "2026-11-22T19:45:00+00:00", "home": "Lazio", "away": "Bologna", "venue": "Olimpico", "matchday": 13},
-
-    # Monday 2026-11-23
-    {"comp_code": "PL", "comp_name": "Premier League", "country": "England", "ext_id": "pl_20261123_1", "date": "2026-11-23T20:00:00+00:00", "home": "Newcastle", "away": "West Ham", "venue": "St. James' Park", "matchday": 12},
-    {"comp_code": "PD", "comp_name": "La Liga", "country": "Spain", "ext_id": "pd_20261123_1", "date": "2026-11-23T20:00:00+00:00", "home": "Getafe", "away": "Real Valladolid", "venue": "Coliseum Alfonso Perez", "matchday": 14},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261123_1", "date": "2026-11-23T17:30:00+00:00", "home": "Empoli", "away": "Udinese", "venue": "Carlo Castellani", "matchday": 13},
-    {"comp_code": "SA", "comp_name": "Serie A", "country": "Italy", "ext_id": "sa_20261123_2", "date": "2026-11-23T19:45:00+00:00", "home": "Venezia", "away": "Lecce", "venue": "Pier Luigi Penzo", "matchday": 13},
-
-    # Tuesday 2026-11-24 & Wednesday 2026-11-25 (UEFA Champions League)
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261124_1", "date": "2026-11-24T20:00:00+00:00", "home": "Bayern Munich", "away": "Paris Saint Germain", "venue": "Allianz Arena", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261124_2", "date": "2026-11-24T20:00:00+00:00", "home": "Inter", "away": "RB Leipzig", "venue": "San Siro", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261124_3", "date": "2026-11-24T20:00:00+00:00", "home": "Barcelona", "away": "Brest", "venue": "Montjuic", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261124_4", "date": "2026-11-24T20:00:00+00:00", "home": "Manchester City", "away": "Feyenoord", "venue": "Etihad Stadium", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261124_5", "date": "2026-11-24T20:00:00+00:00", "home": "Sporting CP", "away": "Arsenal", "venue": "Jose Alvalade", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261125_1", "date": "2026-11-25T20:00:00+00:00", "home": "Liverpool", "away": "Real Madrid", "venue": "Anfield", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261125_2", "date": "2026-11-25T20:00:00+00:00", "home": "Aston Villa", "away": "Juventus", "venue": "Villa Park", "matchday": 5},
-    {"comp_code": "CL", "comp_name": "UEFA Champions League", "country": "World", "ext_id": "cl_20261125_3", "date": "2026-11-25T20:00:00+00:00", "home": "Celtic", "away": "Club Brugge", "venue": "Celtic Park", "matchday": 5},
-]
-
-CALENDAR_RESULTS: Dict[str, Dict[str, Any]] = {
-    # Saturday 2026-11-21
-    "pl_20261121_1": {"ft_h": 1, "ft_a": 2, "ht_h": 0, "ht_a": 1, "winner": "AWAY_TEAM"},  # Leicester vs Chelsea
-    "pl_20261121_2": {"ft_h": 3, "ft_a": 0, "ht_h": 1, "ht_a": 0, "winner": "HOME_TEAM"},  # Arsenal vs Nottingham Forest
-    "pl_20261121_3": {"ft_h": 2, "ft_a": 2, "ht_h": 1, "ht_a": 2, "winner": "DRAW"},       # Aston Villa vs Crystal Palace
-    "pl_20261121_4": {"ft_h": 1, "ft_a": 2, "ht_h": 0, "ht_a": 1, "winner": "AWAY_TEAM"},  # Bournemouth vs Brighton
-    "pl_20261121_5": {"ft_h": 0, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "DRAW"},       # Everton vs Brentford
-    "pl_20261121_6": {"ft_h": 1, "ft_a": 4, "ht_h": 1, "ht_a": 1, "winner": "AWAY_TEAM"},  # Fulham vs Wolves
-    "pl_20261121_7": {"ft_h": 0, "ft_a": 4, "ht_h": 0, "ht_a": 2, "winner": "AWAY_TEAM"},  # Manchester City vs Tottenham
-    "pd_20261121_1": {"ft_h": 1, "ft_a": 0, "ht_h": 1, "ht_a": 0, "winner": "HOME_TEAM"},  # Rayo Vallecano vs Sevilla
-    "pd_20261121_2": {"ft_h": 2, "ft_a": 1, "ht_h": 0, "ht_a": 1, "winner": "HOME_TEAM"},  # Atletico Madrid vs Alaves
-    "pd_20261121_3": {"ft_h": 2, "ft_a": 3, "ht_h": 0, "ht_a": 0, "winner": "AWAY_TEAM"},  # Las Palmas vs Mallorca
-    "pd_20261121_4": {"ft_h": 2, "ft_a": 2, "ht_h": 0, "ht_a": 1, "winner": "DRAW"},       # Celta Vigo vs Barcelona
-    "sa_20261121_1": {"ft_h": 0, "ft_a": 5, "ht_h": 0, "ht_a": 5, "winner": "AWAY_TEAM"},  # Verona vs Inter
-    "sa_20261121_2": {"ft_h": 0, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "DRAW"},       # AC Milan vs Juventus
-    "sa_20261121_3": {"ft_h": 1, "ft_a": 3, "ht_h": 0, "ht_a": 2, "winner": "AWAY_TEAM"},  # Parma vs Atalanta
-    "bl1_20261121_1": {"ft_h": 5, "ft_a": 2, "ht_h": 2, "ht_a": 2, "winner": "HOME_TEAM"}, # Bayer Leverkusen vs Heidenheim
-    "bl1_20261121_2": {"ft_h": 4, "ft_a": 0, "ht_h": 2, "ht_a": 0, "winner": "HOME_TEAM"}, # Borussia Dortmund vs Freiburg
-    "bl1_20261121_3": {"ft_h": 4, "ft_a": 3, "ht_h": 1, "ht_a": 2, "winner": "HOME_TEAM"}, # Hoffenheim vs RB Leipzig
-    "bl1_20261121_4": {"ft_h": 2, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "HOME_TEAM"}, # VfB Stuttgart vs VfL Bochum
-    "bl1_20261121_5": {"ft_h": 1, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "HOME_TEAM"}, # Wolfsburg vs Union Berlin
-    "bl1_20261121_6": {"ft_h": 1, "ft_a": 0, "ht_h": 1, "ht_a": 0, "winner": "HOME_TEAM"}, # Eintracht Frankfurt vs Werder Bremen
-
-    # Sunday 2026-11-22
-    "pl_20261122_1": {"ft_h": 2, "ft_a": 3, "ht_h": 1, "ht_a": 1, "winner": "AWAY_TEAM"},  # Southampton vs Liverpool
-    "pl_20261122_2": {"ft_h": 1, "ft_a": 1, "ht_h": 1, "ht_a": 1, "winner": "DRAW"},       # Ipswich vs Manchester United
-    "pd_20261122_1": {"ft_h": 2, "ft_a": 2, "ht_h": 1, "ht_a": 0, "winner": "DRAW"},       # Osasuna vs Villarreal
-    "pd_20261122_2": {"ft_h": 0, "ft_a": 3, "ht_h": 0, "ht_a": 1, "winner": "AWAY_TEAM"},  # Leganes vs Real Madrid
-    "pd_20261122_3": {"ft_h": 1, "ft_a": 0, "ht_h": 1, "ht_a": 0, "winner": "HOME_TEAM"},  # Athletic Club vs Real Sociedad
-    "sa_20261122_1": {"ft_h": 2, "ft_a": 2, "ht_h": 1, "ht_a": 1, "winner": "DRAW"},       # Genoa vs Cagliari
-    "sa_20261122_2": {"ft_h": 0, "ft_a": 2, "ht_h": 0, "ht_a": 1, "winner": "AWAY_TEAM"},  # Como vs Fiorentina
-    "sa_20261122_3": {"ft_h": 1, "ft_a": 1, "ht_h": 0, "ht_a": 0, "winner": "DRAW"},       # Torino vs Monza
-    "sa_20261122_4": {"ft_h": 1, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "HOME_TEAM"},  # Napoli vs Roma
-    "sa_20261122_5": {"ft_h": 3, "ft_a": 0, "ht_h": 0, "ht_a": 0, "winner": "HOME_TEAM"},  # Lazio vs Bologna
-}
+CALENDAR_FIXTURES: List[Dict[str, Any]] = []
+CALENDAR_RESULTS: Dict[str, Dict[str, Any]] = {}
 
 
 class FootballCollectorService:
@@ -172,6 +88,17 @@ class FootballCollectorService:
     ) -> int:
         """Helper to upsert teams, fixture, and optional result safely."""
         provider = self.client.provider_name
+
+        # Strict fixture verification
+        if is_synthetic_external_id(sf.external_id):
+            logger.warning("Rejecting fixture with synthetic external_id: %s", sf.external_id)
+            return 0
+        if not sf.home_team or not sf.home_team.name or not sf.away_team or not sf.away_team.name:
+            logger.warning("Rejecting fixture with missing team info: %s", sf.external_id)
+            return 0
+        if sf.home_team.name.strip().lower() == sf.away_team.name.strip().lower():
+            logger.warning("Rejecting fixture with identical teams: %s", sf.home_team.name)
+            return 0
 
         # 1. Upsert home team
         home_id = self.repository.upsert_team(
@@ -321,100 +248,9 @@ class FootballCollectorService:
         }
 
     def _ensure_scheduled_calendar_fixtures(self, start_date: str, days_ahead: int = 10) -> int:
-        """Seed scheduled calendar fixtures for Tier-One competitions when live APIs restrict forward dates."""
-        from datetime import datetime, timedelta, timezone
-        try:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        except Exception:
-            start_dt = datetime.now(timezone.utc)
-        end_dt = start_dt + timedelta(days=days_ahead)
-
-        cursor = self.repository.conn.cursor()
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM fixtures
-            WHERE status IN ('SCHEDULED', 'TIMED', 'TBD', 'NOT_STARTED')
-              AND DATE(utc_date) >= '2026-11-23' AND DATE(utc_date) <= '2026-11-28'
-            """
-        )
-        row = cursor.fetchone()
-        if row and row[0] >= 10:
-            return 0
-
-        seeded_count = 0
-        comp_cache: Dict[str, int] = {}
-
-        for item in CALENDAR_FIXTURES:
-            f_date_str = item["date"][:10]
-            try:
-                f_dt = datetime.strptime(f_date_str, "%Y-%m-%d")
-                if f_dt < start_dt or f_dt > end_dt:
-                    continue
-            except Exception:
-                pass
-
-            comp_code = item["comp_code"]
-            if comp_code not in comp_cache:
-                c_record = self.repository.get_competition_by_code_or_external_id(self.client.provider_name, comp_code)
-                if not c_record or not c_record.id:
-                    c_record = self.repository.get_competition_by_code_or_external_id("api-football", comp_code)
-                if not c_record or not c_record.id:
-                    c_record = self.repository.get_competition_by_code_or_external_id("football-data-csv", comp_code)
-                if c_record and c_record.id:
-                    comp_cache[comp_code] = c_record.id
-                else:
-                    new_cid = self.repository.upsert_competition(
-                        Competition(
-                            external_id=comp_code,
-                            provider="calendar",
-                            name=item["comp_name"],
-                            code=comp_code,
-                            country=item["country"],
-                        )
-                    )
-                    comp_cache[comp_code] = new_cid
-
-            target_cid = comp_cache[comp_code]
-            home_team = StandardTeam(
-                external_id=f"team_{item['home'].lower().replace(' ', '_')}",
-                name=item["home"],
-                short_name=item["home"][:3].upper(),
-            )
-            away_team = StandardTeam(
-                external_id=f"team_{item['away'].lower().replace(' ', '_')}",
-                name=item["away"],
-                short_name=item["away"][:3].upper(),
-            )
-            res = CALENDAR_RESULTS.get(item["ext_id"])
-            status = "FINISHED" if res else "SCHEDULED"
-            sf = StandardFixture(
-                external_id=item["ext_id"],
-                competition_external_id=comp_code,
-                utc_date=item["date"],
-                status=status,
-                home_team=home_team,
-                away_team=away_team,
-                season="2026",
-                matchday=str(item.get("matchday", 1)),
-                venue=item.get("venue"),
-            )
-            fid = self._persist_standard_fixture(sf, target_cid)
-            if res and fid:
-                self.repository.upsert_match_result(
-                    MatchResult(
-                        fixture_id=fid,
-                        winner=res["winner"],
-                        duration="REGULAR",
-                        full_time_home_score=res["ft_h"],
-                        full_time_away_score=res["ft_a"],
-                        half_time_home_score=res["ht_h"],
-                        half_time_away_score=res["ht_a"],
-                    )
-                )
-            seeded_count += 1
-
-        logger.info("Calendar coverage: ensured %d scheduled fixtures for forward dates", seeded_count)
-        return seeded_count
+        """Disabled for data integrity. Calendar seeding is strictly prohibited in production."""
+        logger.info("Calendar fixture seeding is permanently disabled to enforce data integrity.")
+        return 0
 
     def sync_upcoming_window(
         self,
@@ -508,9 +344,6 @@ class FootballCollectorService:
                 except Exception as e:
                     logger.warning("Error syncing date %s: %s", cur_date, e)
 
-        # 3. Fallback: Seed scheduled matchday calendar fixtures if forward dates (3+ days) have 0 matches
-        seeded = self._ensure_scheduled_calendar_fixtures(start_date=today_str, days_ahead=max(days_ahead, 10))
-        total_synced += seeded
 
         return {
             "competition": competition_code_or_id or "all",
