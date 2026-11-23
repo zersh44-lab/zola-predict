@@ -2013,6 +2013,10 @@ class FootballRepository:
         distinct_comps_dict: Dict[int, Dict[str, Any]] = {}
 
         for f in rows:
+            # Score mapping for UI compatibility
+            f["home_score"] = f.get("full_time_home_score")
+            f["away_score"] = f.get("full_time_away_score")
+
             # Country flags & monograms
             h_flag = get_country_flag_url(f.get("home_team_name"))
             a_flag = get_country_flag_url(f.get("away_team_name"))

@@ -4538,33 +4538,24 @@
 
 
     function renderMatchScoreOrTime(f) {
+      const h = (f.home_score !== undefined && f.home_score !== null) ? f.home_score : ((f.full_time_home_score !== undefined && f.full_time_home_score !== null) ? f.full_time_home_score : null);
+      const a = (f.away_score !== undefined && f.away_score !== null) ? f.away_score : ((f.full_time_away_score !== undefined && f.full_time_away_score !== null) ? f.full_time_away_score : null);
 
       if (f.status === "LIVE") {
-
         return `<div class="match-score-badge" style="background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #ef4444;">
-
-          ${f.home_score !== null ? f.home_score : 0} - ${f.away_score !== null ? f.away_score : 0}
-
+          ${h !== null ? h : 0} - ${a !== null ? a : 0}
         </div>`;
-
       }
 
       if (f.status === "FINISHED") {
-
         return `<div class="match-score-badge">
-
-          ${f.home_score !== null ? f.home_score : '-'} - ${f.away_score !== null ? f.away_score : '-'}
-
+          ${h !== null ? h : '-'} - ${a !== null ? a : '-'}
         </div>`;
-
       }
 
       return `<div class="match-score-badge" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem;">
-
         vs
-
       </div>`;
-
     }
 
 
@@ -5405,7 +5396,9 @@
         const tr = document.createElement("tr");
 
         const time = formatKickoff(f.utc_date);
-        const score = f.home_score !== null ? `<strong>${f.home_score} - ${f.away_score}</strong>` : `<span style="color: var(--text-muted);">- : -</span>`;
+        const h = (f.home_score !== undefined && f.home_score !== null) ? f.home_score : ((f.full_time_home_score !== undefined && f.full_time_home_score !== null) ? f.full_time_home_score : null);
+        const a = (f.away_score !== undefined && f.away_score !== null) ? f.away_score : ((f.full_time_away_score !== undefined && f.full_time_away_score !== null) ? f.full_time_away_score : null);
+        const score = (h !== null && a !== null) ? `<strong>${h} - ${a}</strong>` : `<span style="color: var(--text-muted);">- : -</span>`;
         const statusBadge = f.status === "FINISHED" ? `<span class="badge info">FINISHED</span>` : f.status === "LIVE" ? `<span class="badge danger"><span class="pulsing-live-dot"></span> LIVE</span>` : `<span class="badge success">SCHEDULED</span>`;
 
         const homeName = f.home_team_name || "Home Team";
