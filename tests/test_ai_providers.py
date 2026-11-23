@@ -20,7 +20,7 @@ def test_statistical_fallback_provider():
 
     assert "Arsenal vs Chelsea" in summary
     assert "Premier League" in summary
-    assert "Consensus Forecast" in summary
+    assert "Active Market Policy" in summary
 
 
 def test_ai_provider_factory_fallback():

@@ -64,14 +64,34 @@ def test_high_confidence_selector_returns_max_3_picks(sample_fixture):
     assert report.match_name == "Arsenal vs Crystal Palace"
     assert report.competition_name == "Premier League"
 
-    # Verify each pick has required fields
+    # Verify each pick has required fields and adheres strictly to active allowlist
     for pick in report.picks:
-        assert pick.market in ("DOUBLE_CHANCE", "OU15", "OU05", "DNB", "1X2", "BTTS", "OU25")
+        assert pick.market in ("DOUBLE_CHANCE", "OU15", "OU05")
         assert pick.probability >= 0.60
         assert pick.confidence in ("HIGH", "MEDIUM")
         assert len(pick.rationale) > 20
         assert len(pick.risks) > 10
         assert pick.estimated_odd >= 1.0
+
+
+def test_high_confidence_selector_strictly_excludes_disabled_markets(sample_fixture):
+    """Test that disabled markets (1X2, BTTS, OU25, OU35, DNB) are never selected even with high probabilities."""
+    preds = {
+        "1X2": make_pred("1X2", "HOME_WIN", 0.90, conf="HIGH", conf_score=0.95),
+        "BTTS": make_pred("BTTS", "BTTS_YES", 0.90, conf="HIGH", conf_score=0.95),
+        "OU25": make_pred("OU25", "OVER_25", 0.90, conf="HIGH", conf_score=0.95),
+        "OU35": make_pred("OU35", "UNDER_35", 0.90, conf="HIGH", conf_score=0.95),
+        "DNB": make_pred("DNB", "1_DNB", 0.90, conf="HIGH", conf_score=0.95),
+        "DOUBLE_CHANCE": make_pred("DOUBLE_CHANCE", "1X", 0.85, conf="HIGH", conf_score=0.90),
+        "OU15": make_pred("OU15", "OVER_15", 0.82, conf="HIGH", conf_score=0.88),
+    }
+
+    report = HighConfidenceSelector.evaluate_fixture(sample_fixture, preds)
+
+    assert not report.is_skipped
+    selected_markets = {p.market for p in report.picks}
+    assert selected_markets.issubset({"OU05", "OU15", "DOUBLE_CHANCE"})
+    assert not any(m in selected_markets for m in ("1X2", "BTTS", "OU25", "OU35", "DNB"))
 
 
 def test_high_confidence_selector_skips_low_confidence_match(sample_fixture):

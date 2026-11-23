@@ -5609,7 +5609,8 @@
         updateCountdownTicker();
         countdownTimerInterval = setInterval(updateCountdownTicker, 1000);
 
-        // 2. Verdict Card (AI Smart-Routed Safe Default)
+        // 2. Verdict Card (AI Smart-Routed Safe Default or Top High-Confidence Pick)
+        const hcReport = data.high_confidence_report;
         const ens1x2 = ens["1X2"] || {};
         const smartRouting = data.smart_routing || ens1x2.features?.smart_routing;
         const verdictBadge = document.getElementById("modal-verdict-badge");
@@ -5625,7 +5626,16 @@
         let pickConf = "MEDIUM";
         let pickReason = "";
 
-        if (smartRouting && smartRouting.active) {
+        if (hcReport && hcReport.picks && hcReport.picks.length > 0) {
+          const topPick = hcReport.picks[0];
+          verdictBadge.innerHTML = "⭐ TOP HIGH-CONFIDENCE SELECTION";
+          verdictBadge.style.borderColor = "#00D9FF";
+          verdictBadge.style.color = "#00D9FF";
+          pickTitle = `${topPick.outcome_display} — ${topPick.market_label}`;
+          pickProb = topPick.probability || 0.75;
+          pickConf = topPick.confidence || "HIGH";
+          pickReason = topPick.rationale || "";
+        } else if (smartRouting && smartRouting.active && ["DOUBLE_CHANCE", "OU15", "OU05"].includes(smartRouting.recommended_market)) {
           verdictBadge.innerHTML = "🛡️ SMART-ROUTED SAFE DEFAULT";
           verdictBadge.style.borderColor = "#00D9FF";
           verdictBadge.style.color = "#00D9FF";
@@ -5640,21 +5650,19 @@
             const gr = smartRouting.goal_routing;
             pickReason += ` • Safe Goals Recommendation: ${gr.recommended_outcome} (${(gr.probability * 100).toFixed(1)}% prob, 86% win rate).`;
           }
-        } else if (ens1x2.predicted_outcome) {
-          verdictBadge.innerHTML = "🎯 CONSENSUS OUTCOME PICK";
+        } else if (ens["DOUBLE_CHANCE"]) {
+          const dc = ens["DOUBLE_CHANCE"];
+          verdictBadge.innerHTML = "🎯 DOUBLE CHANCE CONSENSUS";
           verdictBadge.style.borderColor = "#087BFF";
           verdictBadge.style.color = "#087BFF";
-          const outcomeLabel = ens1x2.predicted_outcome === "HOME_WIN" ? `${homeName} WIN` :
-                               ens1x2.predicted_outcome === "AWAY_WIN" ? `${awayName} WIN` : "DRAW";
-          pickTitle = `${outcomeLabel} (${ens1x2.predicted_outcome})`;
-          pickProb = ens1x2.probability || 0.5;
-          pickConf = ens1x2.confidence || "MEDIUM";
-          pickReason = ens1x2.features?.consensus_explanation ||
-            "Model consensus across calibrated Poisson, Dixon-Coles, and Elo power ratings.";
+          pickTitle = `Double Chance: ${dc.predicted_outcome}`;
+          pickProb = dc.probability || 0.7;
+          pickConf = dc.confidence || "MEDIUM";
+          pickReason = "Statistical consensus prioritizes multi-outcome coverage to protect against draw volatility.";
         } else {
-          verdictBadge.innerHTML = "🎯 MODEL PREDICTION";
+          verdictBadge.innerHTML = "🎯 HIGH-CONFIDENCE SELECTION";
           pickTitle = "ANALYSIS COMPLETE";
-          pickReason = "Evaluated across predictive algorithms.";
+          pickReason = "Evaluated against active market allowlist.";
         }
 
         verdictPick.innerText = `${pickTitle} (${(pickProb * 100).toFixed(1)}%)`;
@@ -5874,12 +5882,9 @@
       grid.innerHTML = "";
 
       const primaryMarkets = [
-        { key: "1X2", label: "Match Outcome (1X2)" },
-        { key: "DOUBLE_CHANCE", label: "Double Chance (DC)" },
+        { key: "DOUBLE_CHANCE", label: "Double Chance (1X / X2 / 12)" },
         { key: "OU15", label: "Total Goals Over/Under 1.5" },
-        { key: "OU25", label: "Total Goals Over/Under 2.5" },
-        { key: "BTTS", label: "Both Teams To Score (BTTS)" },
-        { key: "DNB", label: "Draw No Bet (DNB)" }
+        { key: "OU05", label: "Total Goals Over/Under 0.5" }
       ];
 
       primaryMarkets.forEach(m => {
@@ -6068,6 +6073,11 @@
         `;
         grid.appendChild(card);
       });
+
+      const notice = document.createElement("div");
+      notice.style.cssText = "grid-column: 1 / -1; font-size: 0.75rem; color: #B8F5FF; text-align: center; margin-top: 0.75rem; background: rgba(7, 20, 38, 0.75); padding: 0.65rem 1rem; border-radius: 8px; border: 1px solid rgba(8, 123, 255, 0.3);";
+      notice.innerHTML = "🔒 <strong>Market Restriction Policy:</strong> Only empirically verified high-reliability markets (<code>DOUBLE_CHANCE</code>, <code>OU15</code>, <code>OU05</code>) are active. Inactive markets (<code>1X2</code>, <code>BTTS</code>, <code>OU25</code>, <code>OU35</code>, <code>DNB</code>) are temporarily suppressed to eliminate high-loss variance.";
+      grid.appendChild(notice);
     }
 
     function renderMatchdayStatsComparison(stats, homeName, awayName) {
@@ -6815,8 +6825,8 @@
           const isAwayWinner = score.winner === "AWAY_TEAM";
           const isDraw = score.winner === "DRAW";
 
-          // Identify Primary Smart-Routed Pick (Safe Default)
-          const safeOrder = ["OU15", "DOUBLE_CHANCE", "OU05", "DNB"];
+          // Identify Primary Smart-Routed Pick (Safe Default from Approved Markets)
+          const safeOrder = ["OU15", "DOUBLE_CHANCE", "OU05"];
           let primaryPick = null;
           for (let mKey of safeOrder) {
             const found = preds.find(p => p.market === mKey);

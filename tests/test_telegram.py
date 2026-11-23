@@ -130,4 +130,4 @@ def test_send_fixture_report(repo, monkeypatch):
     assert "ZOLA PREDICT" in text
     assert "Arsenal" in text
     assert "Chelsea" in text
-    assert "1X2" in text
+    assert "HIGH-CONFIDENCE REPORT" in text

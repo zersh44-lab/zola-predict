@@ -167,66 +167,84 @@ class TelegramReportSender:
         fixture: Dict[str, Any],
         predictions: Dict[str, Any],
     ) -> str:
-        """Format a rich match report card for Telegram."""
+        """Format a rich match report card for Telegram adhering strictly to active market allowlist."""
         home_team = fixture.get("home_team_name", "Home Team")
         away_team = fixture.get("away_team_name", "Away Team")
         competition = fixture.get("competition_name", "League")
         date_str = str(fixture.get("utc_date", ""))[:16].replace("T", " ")
 
         ensemble = predictions.get("ensemble", {})
-        p_1x2 = ensemble.get("1X2")
-        p_btts = ensemble.get("BTTS")
-        p_ou25 = ensemble.get("OU25")
-        p_ou15 = ensemble.get("OU15")
-        p_dc = ensemble.get("DOUBLE_CHANCE")
-        p_dnb = ensemble.get("DNB")
 
-        pick_1x2 = p_1x2.predicted_outcome if p_1x2 else "N/A"
-        prob_1x2 = f"{p_1x2.probability * 100:.1f}%" if p_1x2 else "-"
-        conf = p_1x2.confidence if p_1x2 else "LOW"
+        # Extract high-confidence report if present
+        hc_report = None
+        for p in ensemble.values():
+            feat = p.get("features", {}) if isinstance(p, dict) else (getattr(p, "features", {}) or {})
+            if isinstance(feat, dict) and "high_confidence_report" in feat:
+                hc_report = feat["high_confidence_report"]
+                break
 
         lines = [
-            "⚽ *ZOLA PREDICT — MATCH REPORT*",
+            "⚽ *ZOLA PREDICT — HIGH-CONFIDENCE REPORT*",
             "━━━━━━━━━━━━━━━━━━━━",
             f"🏆 *{competition}*",
             f"⚔️ *{home_team} vs {away_team}*",
             f"📅 `{date_str} UTC`",
             "",
-            "📊 *Consensus Market Forecasts:*",
-            f"• *1X2*: `{pick_1x2}` ({prob_1x2})",
-            f"• *BTTS*: `{p_btts.predicted_outcome if p_btts else 'N/A'}` ({p_btts.probability*100:.1f}%)" if p_btts else "",
-            f"• *Goals*: `{p_ou25.predicted_outcome if p_ou25 else 'N/A'}` ({p_ou25.probability*100:.1f}%) | `{p_ou15.predicted_outcome if p_ou15 else 'N/A'}` ({p_ou15.probability*100:.1f}%)" if p_ou25 and p_ou15 else "",
-            f"• *Double Chance*: `{p_dc.predicted_outcome if p_dc else 'N/A'}` ({p_dc.probability*100:.1f}%)" if p_dc else "",
-            f"• *Draw No Bet*: `{p_dnb.predicted_outcome if p_dnb else 'N/A'}` ({p_dnb.probability*100:.1f}%)" if p_dnb else "",
-            "",
-            f"🎯 *Overall Confidence*: `{conf}`",
         ]
 
-        # Smart Market Routing Recommendation
-        sr = p_1x2.features.get("smart_routing") if p_1x2 and isinstance(p_1x2.features, dict) else None
-        if sr and sr.get("active"):
+        if hc_report and hc_report.get("is_skipped"):
             lines.extend([
+                "⚠️ *NO HIGH-CONFIDENCE PREDICTION — SKIP THIS MATCH.*",
+                f"💡 _{hc_report.get('skip_rationale', 'Insufficient statistical edge or high volatility.')}_",
                 "",
-                "🛡️ *Smart-Routed Recommendation (Safer Default):*",
-                f"👉 *{sr.get('recommended_outcome')}* ({sr.get('recommended_market')}) — {sr.get('probability', 0)*100:.1f}%",
-                f"💡 _{sr.get('reason')}_",
+                "🔒 _Market Policy: Only verified high-yield markets (OU05, OU15, DOUBLE_CHANCE) are eligible for selection._",
             ])
-            gr = sr.get("goal_routing")
-            if gr and gr.get("active"):
-                lines.append(f"⚽ *Safe Goals Pick*: `{gr.get('recommended_outcome')}` ({gr.get('probability', 0)*100:.1f}%) — _{gr.get('reason')}_")
+        elif hc_report and hc_report.get("picks"):
+            lines.append("🎯 *Selected High-Confidence Options (Max 3):*")
+            for pick in hc_report.get("picks", []):
+                # Ensure market is strictly in approved allowlist
+                if pick.get("market") not in ("OU05", "OU15", "DOUBLE_CHANCE"):
+                    continue
+                rank = pick.get("rank", 1)
+                outcome = pick.get("outcome_display", "")
+                prob = pick.get("probability_pct", "")
+                conf = pick.get("confidence", "HIGH")
+                odd = pick.get("estimated_odd", "-")
+                rationale = pick.get("rationale", "")
+                risks = pick.get("risks", "")
+                lines.extend([
+                    f"*{rank}. {outcome}* | Est. Odd: `{odd}`",
+                    f"   • Probability: `{prob}` | Confidence: `{conf}`",
+                    f"   • Rationale: _{rationale}_",
+                    f"   • Key Risk: _{risks}_",
+                    "",
+                ])
+        else:
+            # Fallback formatting strictly for approved markets only
+            p_ou15 = ensemble.get("OU15")
+            p_dc = ensemble.get("DOUBLE_CHANCE")
+            p_ou05 = ensemble.get("OU05")
+            lines.append("📊 *Approved Market Analysis:*")
+            if p_dc:
+                dc_pick = p_dc.predicted_outcome if hasattr(p_dc, "predicted_outcome") else p_dc.get("predicted_outcome", "N/A")
+                dc_prob = p_dc.probability if hasattr(p_dc, "probability") else p_dc.get("probability", 0)
+                lines.append(f"• *Double Chance*: `{dc_pick}` ({dc_prob*100:.1f}%)")
+            if p_ou15:
+                o15_pick = p_ou15.predicted_outcome if hasattr(p_ou15, "predicted_outcome") else p_ou15.get("predicted_outcome", "N/A")
+                o15_prob = p_ou15.probability if hasattr(p_ou15, "probability") else p_ou15.get("probability", 0)
+                lines.append(f"• *Over/Under 1.5*: `{o15_pick}` ({o15_prob*100:.1f}%)")
+            if p_ou05:
+                o05_pick = p_ou05.predicted_outcome if hasattr(p_ou05, "predicted_outcome") else p_ou05.get("predicted_outcome", "N/A")
+                o05_prob = p_ou05.probability if hasattr(p_ou05, "probability") else p_ou05.get("probability", 0)
+                lines.append(f"• *Over 0.5*: `{o05_pick}` ({o05_prob*100:.1f}%)")
             lines.append("")
-
-        if p_1x2 and p_1x2.data_quality_notes:
-            lines.append("📝 *Quality Notes:*")
-            for note in p_1x2.data_quality_notes:
-                lines.append(f"• _{note}_")
 
         lines.extend([
             "━━━━━━━━━━━━━━━━━━━━",
-            "🤖 _Generated locally by Zola Predict_",
+            "🤖 _Quality Over Quantity • Zola Predict_",
         ])
 
-        return "\n".join(line for line in lines if line is not None)
+        return "\n".join(lines)
 
     def send_fixture_report(
         self,

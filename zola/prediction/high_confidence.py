@@ -22,12 +22,16 @@ MARKET_EMPIRICAL_WIN_RATES: Dict[str, float] = {
     "OU05": 0.961,         # Over 0.5 Goals
     "OU15": 0.846,         # Over 1.5 Goals
     "DOUBLE_CHANCE": 0.792,# Double Chance (1X / X2)
-    "DNB": 0.765,          # Draw No Bet
-    "1X2": 0.680,          # Outright 1X2 (filtered high-conviction only)
-    "BTTS": 0.640,         # Both Teams to Score (filtered)
-    "OU25": 0.620,         # Over/Under 2.5 (filtered)
-    "OU35": 0.650,         # Over/Under 3.5 (filtered)
+    "DNB": 0.765,          # Draw No Bet (Disabled)
+    "1X2": 0.680,          # Outright 1X2 (Disabled)
+    "BTTS": 0.640,         # Both Teams to Score (Disabled)
+    "OU25": 0.620,         # Over/Under 2.5 (Disabled)
+    "OU35": 0.650,         # Over/Under 3.5 (Disabled)
 }
+
+# Strict Active Market Allowlist (Only top-3 empirically verified markets active)
+APPROVED_HIGH_CONFIDENCE_MARKETS: set[str] = {"OU05", "OU15", "DOUBLE_CHANCE"}
+DISABLED_MARKETS: set[str] = {"1X2", "BTTS", "OU25", "OU35", "DNB"}
 
 # Strict Minimum Quality Gates
 MIN_PROBABILITY_THRESHOLD = 0.60
@@ -237,218 +241,34 @@ class HighConfidenceSelector:
                 })
 
         # -------------------------------------------------------------
-        # 4. Evaluate DRAW NO BET (DNB) (Empirical Priority: 76.5% WR)
+        # 4. Enforce Active Market Allowlist (OU05, OU15, DOUBLE_CHANCE only)
+        # Temporarily disabled: 1X2, BTTS, OU25, OU35, DNB
         # -------------------------------------------------------------
-        if "DNB" in ensemble_predictions:
-            pred_dnb = ensemble_predictions["DNB"]
-            dnb_pick = pred_dnb.predicted_outcome
-            dnb_prob = pred_dnb.probability
-
-            if dnb_prob >= 0.72 and pred_dnb.confidence in ("HIGH", "MEDIUM"):
-                favored_team = h_name if dnb_pick == "1_DNB" else a_name
-                outcome_disp = f"{favored_team} (Draw No Bet)"
-                rationale = (
-                    f"{favored_team} holds decisive edge ({dnb_prob * 100:.1f}% DNB probability). "
-                    f"In the event of a draw, stake is fully refunded, eliminating draw loss vulnerability."
-                )
-                risks = f"Outright win by opponent causes a loss; match ending in a draw produces no profit."
-                q_score = (dnb_prob * 0.40) + (pred_dnb.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["DNB"] * 0.25)
-
-                candidates.append({
-                    "market": "DNB",
-                    "market_label": "Draw No Bet",
-                    "predicted_outcome": dnb_pick,
-                    "outcome_display": outcome_disp,
-                    "probability": dnb_prob,
-                    "confidence": pred_dnb.confidence,
-                    "confidence_score": pred_dnb.confidence_score,
-                    "rationale": rationale,
-                    "risks": risks,
-                    "quality_score": q_score,
-                    "category": "OUTCOME",
-                })
+        candidates = [c for c in candidates if c["market"] in APPROVED_HIGH_CONFIDENCE_MARKETS]
 
         # -------------------------------------------------------------
-        # 5. Evaluate OUTRIGHT 1X2 (Strict Gating to Prevent Costly Losses)
-        # -------------------------------------------------------------
-        if "1X2" in ensemble_predictions:
-            pred_1x2 = ensemble_predictions["1X2"]
-            pick_1x2 = pred_1x2.predicted_outcome
-            prob_1x2 = pred_1x2.probability
-            draw_prob = pred_1x2.probabilities.get("DRAW", 0.0)
-
-            # Strict rules to prevent the 94 historical 1X2 losses:
-            # 1. Probability must be >= 64%
-            # 2. Draw probability must be < 26%
-            # 3. Confidence must be HIGH
-            if pick_1x2 in ("HOME_WIN", "AWAY_WIN"):
-                if prob_1x2 >= 0.64 and draw_prob < 0.26 and pred_1x2.confidence == "HIGH":
-                    fav_team = h_name if pick_1x2 == "HOME_WIN" else a_name
-                    outcome_disp = f"{fav_team} to Win"
-                    rationale = (
-                        f"Dominant conviction for {fav_team} ({prob_1x2 * 100:.1f}% probability) with suppressed draw probability ({draw_prob * 100:.1f}%). "
-                        f"Unanimous model backing and superior underlying metrics."
-                    )
-                    risks = f"Underdog defensive low block or unexpected away counter-attack."
-                    q_score = (prob_1x2 * 0.40) + (pred_1x2.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["1X2"] * 0.25)
-
-                    candidates.append({
-                        "market": "1X2",
-                        "market_label": "Match Winner",
-                        "predicted_outcome": pick_1x2,
-                        "outcome_display": outcome_disp,
-                        "probability": prob_1x2,
-                        "confidence": pred_1x2.confidence,
-                        "confidence_score": pred_1x2.confidence_score,
-                        "rationale": rationale,
-                        "risks": risks,
-                        "quality_score": q_score,
-                        "category": "OUTCOME_STRAIGHT",
-                    })
-                else:
-                    if prob_1x2 < 0.64:
-                        skip_reasons.append(f"1X2 Win probability ({prob_1x2 * 100:.1f}%) is in volatile coin-flip range (< 64%).")
-                    if draw_prob >= 0.26:
-                        skip_reasons.append(f"Elevated draw probability ({draw_prob * 100:.1f}% >= 26%) creates high straight 1X2 loss risk.")
-
-        # -------------------------------------------------------------
-        # 6. Evaluate BOTH TEAMS TO SCORE (BTTS)
-        # -------------------------------------------------------------
-        if "BTTS" in ensemble_predictions:
-            pred_btts = ensemble_predictions["BTTS"]
-            pick_btts = pred_btts.predicted_outcome
-            prob_btts = pred_btts.probability
-
-            # BTTS_YES requires >= 64% and both teams scoring
-            if pick_btts == "BTTS_YES" and prob_btts >= 0.64 and pred_btts.confidence in ("HIGH", "MEDIUM"):
-                h_gs = stats.get("home_goals_scored")
-                a_gs = stats.get("away_goals_scored")
-                if (h_gs is None or h_gs >= 1.2) and (a_gs is None or a_gs >= 1.1):
-                    rationale = (
-                        f"Both teams exhibit strong attacking consistency ({prob_btts * 100:.1f}% probability). "
-                        f"Home avg {h_gs or '1.5+'} GF, Away avg {a_gs or '1.2+'} GF."
-                    )
-                    risks = "Either team failing to convert high-quality chances or playing a passive setup."
-                    q_score = (prob_btts * 0.40) + (pred_btts.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["BTTS"] * 0.25)
-
-                    candidates.append({
-                        "market": "BTTS",
-                        "market_label": "Both Teams to Score",
-                        "predicted_outcome": "BTTS_YES",
-                        "outcome_display": "Yes (BTTS)",
-                        "probability": prob_btts,
-                        "confidence": pred_btts.confidence,
-                        "confidence_score": pred_btts.confidence_score,
-                        "rationale": rationale,
-                        "risks": risks,
-                        "quality_score": q_score,
-                        "category": "BTTS",
-                    })
-                else:
-                    skip_reasons.append(f"BTTS lacks sufficient goal production metrics.")
-            elif pick_btts == "BTTS_NO":
-                # Historical analysis showed BTTS_NO lost 48.1% of the time due to late consolations
-                if prob_btts >= 0.72 and pred_btts.confidence == "HIGH":
-                    rationale = f"Heavy defensive profile with {prob_btts * 100:.1f}% probability of at least one clean sheet."
-                    risks = "Late consolation goal or penalty."
-                    q_score = (prob_btts * 0.40) + (pred_btts.confidence_score * 0.35) + 0.60 * 0.25
-                    candidates.append({
-                        "market": "BTTS",
-                        "market_label": "Both Teams to Score",
-                        "predicted_outcome": "BTTS_NO",
-                        "outcome_display": "No (BTTS)",
-                        "probability": prob_btts,
-                        "confidence": pred_btts.confidence,
-                        "confidence_score": pred_btts.confidence_score,
-                        "rationale": rationale,
-                        "risks": risks,
-                        "quality_score": q_score,
-                        "category": "BTTS",
-                    })
-                else:
-                    skip_reasons.append(f"BTTS_NO carries high underdog consolation risk (< 72% margin).")
-
-        # -------------------------------------------------------------
-        # 7. Evaluate OVER/UNDER 2.5 GOALS
-        # -------------------------------------------------------------
-        if "OU25" in ensemble_predictions:
-            pred_ou25 = ensemble_predictions["OU25"]
-            pick_ou25 = pred_ou25.predicted_outcome
-            prob_ou25 = pred_ou25.probability
-
-            if pick_ou25 == "OVER_25" and prob_ou25 >= 0.65 and (tot_xg is None or tot_xg >= 2.6):
-                rationale = f"High-scoring clash expected ({prob_ou25 * 100:.1f}% probability, {tot_xg or '2.8+'} expected goals)."
-                risks = "Game turns defensive or tactical deadlock."
-                q_score = (prob_ou25 * 0.40) + (pred_ou25.confidence_score * 0.35) + (MARKET_EMPIRICAL_WIN_RATES["OU25"] * 0.25)
-                candidates.append({
-                    "market": "OU25",
-                    "market_label": "Total Goals",
-                    "predicted_outcome": "OVER_25",
-                    "outcome_display": "Over 2.5 Goals",
-                    "probability": prob_ou25,
-                    "confidence": pred_ou25.confidence,
-                    "confidence_score": pred_ou25.confidence_score,
-                    "rationale": rationale,
-                    "risks": risks,
-                    "quality_score": q_score,
-                    "category": "GOALS",
-                })
-            elif pick_ou25 == "UNDER_25":
-                # Historical analysis showed UNDER_25 caused 92 losses (47.1% WR). Only accept if >= 72%
-                if prob_ou25 >= 0.72 and (tot_xg is None or tot_xg <= 1.9):
-                    rationale = f"Low expected tempo and stout defensive metrics ({prob_ou25 * 100:.1f}% probability)."
-                    risks = "Quick goals or early expulsion breaking low-scoring setup."
-                    q_score = (prob_ou25 * 0.40) + (pred_ou25.confidence_score * 0.35) + 0.60 * 0.25
-                    candidates.append({
-                        "market": "OU25",
-                        "market_label": "Total Goals",
-                        "predicted_outcome": "UNDER_25",
-                        "outcome_display": "Under 2.5 Goals",
-                        "probability": prob_ou25,
-                        "confidence": pred_ou25.confidence,
-                        "confidence_score": pred_ou25.confidence_score,
-                        "rationale": rationale,
-                        "risks": risks,
-                        "quality_score": q_score,
-                        "category": "GOALS",
-                    })
-                else:
-                    skip_reasons.append(f"Under 2.5 line is statistically volatile; historical win rate is poor below 72%.")
-
-        # -------------------------------------------------------------
-        # 8. De-duplication and Non-Redundancy Filter
+        # 5. De-duplication and Non-Redundancy Filter
         # -------------------------------------------------------------
         # Sort candidates by quality_score descending
         candidates.sort(key=lambda c: c["quality_score"], reverse=True)
 
         selected: List[Dict[str, Any]] = []
         selected_markets = set()
-        selected_categories = set()
-        has_double_chance = False
         has_ou15 = False
 
         for cand in candidates:
             m = cand["market"]
-            cat = cand["category"]
             outcome = cand["predicted_outcome"]
 
-            # Correlation Rule 1: If Double Chance is already chosen, don't pick straight 1X2 or DNB on the same team
-            if cat in ("OUTCOME", "OUTCOME_STRAIGHT"):
-                if has_double_chance and m in ("1X2", "DNB"):
-                    continue
-                if m == "DOUBLE_CHANCE":
-                    # Remove any lower-ranked DNB or 1X2 already picked
-                    selected = [s for s in selected if s["market"] not in ("1X2", "DNB")]
-                    has_double_chance = True
+            # Strict verification: must be in approved allowlist
+            if m not in APPROVED_HIGH_CONFIDENCE_MARKETS:
+                continue
 
-            # Correlation Rule 2: Goal Markets
-            # Prefer Over 1.5. If Over 1.5 is selected, do not also add Over 0.5 (redundant) or Over 2.5 (excessive risk)
+            # Correlation Rule: Prefer Over 1.5 Goals. If Over 1.5 is selected, do not add Over 0.5
             if m == "OU15" and outcome == "OVER_15":
                 has_ou15 = True
                 selected = [s for s in selected if s["market"] != "OU05"]
             elif m == "OU05" and has_ou15:
-                continue
-            elif m == "OU25" and has_ou15 and outcome == "OVER_25":
                 continue
 
             # Do not repeat the exact same market
@@ -457,15 +277,13 @@ class HighConfidenceSelector:
 
             selected.append(cand)
             selected_markets.add(m)
-            selected_categories.add(cat)
 
             # Cap strictly at maximum 3 predictions per match
             if len(selected) >= 3:
                 break
 
-        # If we have an Over 0.5 and Over 1.5 was also selected, remove Over 0.5
-        if any(s["market"] == "OU15" for s in selected) and any(s["market"] == "OU05" for s in selected):
-            selected = [s for s in selected if s["market"] != "OU05"]
+        # Final guarantee: strictly approved markets and max 3
+        selected = [s for s in selected if s["market"] in APPROVED_HIGH_CONFIDENCE_MARKETS][:3]
 
         # -------------------------------------------------------------
         # 9. Strict Quality Threshold & Skip Logic

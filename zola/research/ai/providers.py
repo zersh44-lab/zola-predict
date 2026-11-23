@@ -49,28 +49,41 @@ class StatisticalFallbackProvider(BaseAiProvider):
         date_str = fixture_info.get("utc_date", "Upcoming")
 
         ensemble = predictions.get("ensemble", {})
-        m_1x2 = ensemble.get("1X2")
-        m_ou25 = ensemble.get("OU25")
-        m_btts = ensemble.get("BTTS")
+        m_dc = ensemble.get("DOUBLE_CHANCE")
+        m_ou15 = ensemble.get("OU15")
+        m_ou05 = ensemble.get("OU05")
 
-        pred_outcome = m_1x2.predicted_outcome if m_1x2 else "PENDING"
-        prob_1x2 = f"{m_1x2.probability * 100:.1f}%" if m_1x2 else "N/A"
-        confidence = m_1x2.confidence if m_1x2 else "UNAVAILABLE"
+        # Extract high-confidence report if present
+        hc_report = None
+        for p in ensemble.values():
+            feat = p.get("features", {}) if isinstance(p, dict) else (getattr(p, "features", {}) or {})
+            if isinstance(feat, dict) and "high_confidence_report" in feat:
+                hc_report = feat["high_confidence_report"]
+                break
 
-        notes = []
-        if m_1x2 and m_1x2.data_quality_notes:
-            notes.extend(m_1x2.data_quality_notes)
+        lines = [
+            f"### Research Brief: {home_team} vs {away_team}",
+            f"- **Competition**: {competition} ({date_str})",
+            "- **Active Market Policy**: Prioritizing verified high-win-rate markets (`DOUBLE_CHANCE`, `OU15`, `OU05`). High-loss markets (`1X2`, `BTTS`, `OU25`, `OU35`, `DNB`) are strictly excluded.",
+        ]
 
-        return (
-            f"### Research Brief: {home_team} vs {away_team}\n"
-            f"- **Competition**: {competition} ({date_str})\n"
-            f"- **Consensus Forecast**: **{pred_outcome}** ({prob_1x2} probability)\n"
-            f"- **Confidence Level**: **{confidence}**\n"
-            f"- **Over/Under 2.5**: {m_ou25.predicted_outcome if m_ou25 else 'N/A'}\n"
-            f"- **Both Teams To Score**: {m_btts.predicted_outcome if m_btts else 'N/A'}\n\n"
-            f"**Data Quality & Model Agreement**:\n"
-            + ("\n".join(f"- {n}" for n in notes) if notes else "- Clean data consistency across all models.")
-        )
+        if hc_report and hc_report.get("is_skipped"):
+            lines.append(f"- **High-Confidence Status**: ⚠️ **SKIP THIS MATCH** — {hc_report.get('skip_rationale')}")
+        elif hc_report and hc_report.get("picks"):
+            lines.append(f"- **High-Confidence Selections ({hc_report.get('total_picks')} of Max 3)**:")
+            for pick in hc_report.get("picks", []):
+                lines.append(f"  • **{pick.get('outcome_display')}** ({pick.get('probability_pct')} prob, {pick.get('confidence')} Conf, @ {pick.get('estimated_odd')})")
+        else:
+            if m_dc:
+                dc_pick = m_dc.get("predicted_outcome") if isinstance(m_dc, dict) else getattr(m_dc, "predicted_outcome", "N/A")
+                dc_prob = m_dc.get("probability", 0) if isinstance(m_dc, dict) else getattr(m_dc, "probability", 0)
+                lines.append(f"- **Double Chance Forecast**: **{dc_pick}** ({dc_prob * 100:.1f}%)")
+            if m_ou15:
+                o15_pick = m_ou15.get("predicted_outcome") if isinstance(m_ou15, dict) else getattr(m_ou15, "predicted_outcome", "N/A")
+                o15_prob = m_ou15.get("probability", 0) if isinstance(m_ou15, dict) else getattr(m_ou15, "probability", 0)
+                lines.append(f"- **Over/Under 1.5 Goals**: **{o15_pick}** ({o15_prob * 100:.1f}%)")
+
+        return "\n".join(lines)
 
 
 class GeminiProvider(BaseAiProvider):
