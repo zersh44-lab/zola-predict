@@ -72,7 +72,7 @@ def test_repo(in_memory_db: sqlite3.Connection) -> FootballRepository:
 def test_01_correct_liverpool_vs_manchester_united_accepted(test_repo):
     fix = {
         "id": 101,
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -120,7 +120,7 @@ def test_02_incorrect_manchester_united_vs_ipswich_rejected(test_repo):
 def test_03_tottenham_vs_ipswich_nov_21_accepted(test_repo):
     fix = {
         "id": 103,
-        "external_id": "1208945",
+        "external_id": "1557476",
         "provider": "api-football",
         "home_team_id": 47,
         "away_team_id": 39,
@@ -146,7 +146,7 @@ def test_03_tottenham_vs_ipswich_nov_21_accepted(test_repo):
 # 4. Correct home and away team mapping accepted
 def test_04_correct_home_away_mapping_accepted(test_repo):
     fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -164,7 +164,7 @@ def test_04_correct_home_away_mapping_accepted(test_repo):
 # 5. Reversed home and away team mapping rejected
 def test_05_reversed_home_away_mapping_rejected(test_repo):
     fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 45,  # 45 is Manchester United in DB
         "away_team_id": 51,  # 51 is Liverpool in DB
@@ -183,7 +183,7 @@ def test_05_reversed_home_away_mapping_rejected(test_repo):
 # 6. Duplicate provider fixture ID handled idempotently
 def test_06_duplicate_provider_fixture_id(test_repo):
     f1 = Fixture(
-        external_id="1208946",
+        external_id="1557473",
         provider="api-football",
         competition_id=8,
         season="2026",
@@ -198,14 +198,14 @@ def test_06_duplicate_provider_fixture_id(test_repo):
     assert id1 == id2
 
     cursor = test_repo.conn.cursor()
-    cursor.execute("SELECT count(*) FROM fixtures WHERE provider = 'api-football' AND external_id = '1208946';")
+    cursor.execute("SELECT count(*) FROM fixtures WHERE provider = 'api-football' AND external_id = '1557473';")
     assert cursor.fetchone()[0] == 1
 
 
 # 7. Same local ID assigned to different matches rejected / conflict quarantined
 def test_07_conflicting_team_ids_quarantined(test_repo):
     f1 = Fixture(
-        external_id="1208946",
+        external_id="1557473",
         provider="api-football",
         competition_id=8,
         season="2026",
@@ -219,7 +219,7 @@ def test_07_conflicting_team_ids_quarantined(test_repo):
 
     # Ingestion of conflicting match under same provider fixture ID
     f_conflict = Fixture(
-        external_id="1208946",
+        external_id="1557473",
         provider="api-football",
         competition_id=8,
         season="2026",
@@ -259,7 +259,7 @@ def test_08_missing_provider_fixture_id_rejected():
 # 9. Wrong competition rejected
 def test_09_wrong_competition_rejected():
     fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -280,7 +280,7 @@ def test_09_wrong_competition_rejected():
 def test_10_wrong_season_rejected():
     # Season in 2021 with match in 2026
     fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -299,7 +299,7 @@ def test_10_wrong_season_rejected():
 # 11. Incorrect kickoff date rejected
 def test_11_incorrect_kickoff_date_rejected():
     fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -338,7 +338,7 @@ def test_13_stale_cached_fixture_rejected():
     # Kickoff is in the past relative to reference time
     ref_now = datetime(2026, 11, 23, 12, 0, 0, tzinfo=timezone.utc)
     stale_fix = {
-        "external_id": "1208946",
+        "external_id": "1557473",
         "provider": "api-football",
         "home_team_id": 51,
         "away_team_id": 45,
@@ -563,7 +563,7 @@ def test_19_invalid_fixture_excluded_from_accuracy_statistics(test_repo):
 def test_20_frontend_api_cannot_return_quarantined_fixtures(test_repo):
     # Insert genuine Liverpool vs Manchester United
     f_real = Fixture(
-        external_id="1208946",
+        external_id="1557473",
         provider="api-football",
         competition_id=8,
         season="2026",
@@ -593,11 +593,11 @@ def test_20_frontend_api_cannot_return_quarantined_fixtures(test_repo):
     disc = test_repo.get_discovery_fixtures(date="2026-11-22", category="all")
     fixtures = disc.get("all_fixtures", [])
     assert len(fixtures) == 1
-    assert fixtures[0]["external_id"] == "1208946"
+    assert fixtures[0]["external_id"] == "1557473"
     assert fixtures[0]["home_team_name"] == "Liverpool"
     assert fixtures[0]["away_team_name"] == "Manchester United"
 
     # Check standard fixtures query
     standard_fixtures = test_repo.get_fixtures(date="2026-11-22")
     assert len(standard_fixtures) == 1
-    assert standard_fixtures[0]["external_id"] == "1208946"
+    assert standard_fixtures[0]["external_id"] == "1557473"
