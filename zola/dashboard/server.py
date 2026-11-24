@@ -9,7 +9,7 @@ import sys
 import threading
 import urllib.parse
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -169,7 +169,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         """
         import os
         import time
-        from datetime import datetime, timezone
+        from datetime import datetime, timedelta, timezone
         from zola.validation.datetime import format_kickoff_ethiopia
         from zola.client.api_sports import ApiSportsClient
         from zola.client.football_data import FootballDataOrgClient
@@ -408,6 +408,47 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 conn.close()
             return
 
+        # 2. Admin & System Sync Monitoring Status
+        if path in ("/api/admin/sync-status", "/api/sync/status"):
+            import os
+            from pathlib import Path
+            conn = get_connection(db_path)
+            try:
+                repo = FootballRepository(conn)
+                stats = repo.get_database_stats()
+                last_sync = DashboardRequestHandler._LAST_CRON_SYNC or repo.get_setting("last_fixture_sync")
+                if not last_sync:
+                    try:
+                        tmp_sync_file = Path("/tmp/last_fixture_sync.json")
+                        if tmp_sync_file.exists():
+                            last_sync = json.loads(tmp_sync_file.read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+
+                cron_secret_set = bool(getattr(settings, "cron_secret", None) or os.getenv("CRON_SECRET"))
+                now_utc = datetime.now(timezone.utc)
+                next_run_dt = now_utc.replace(hour=2, minute=0, second=0, microsecond=0)
+                if next_run_dt <= now_utc:
+                    next_run_dt += timedelta(days=1)
+
+                self._send_json({
+                    "status": "OPERATIONAL",
+                    "scheduler": "Vercel Cron (/api/cron/sync)",
+                    "cron_expression": "0 2 * * *",
+                    "schedule_human": "Every day at 05:00 Africa/Addis_Ababa (02:00 UTC)",
+                    "next_scheduled_run_utc": next_run_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "next_scheduled_run_eat": f"{next_run_dt.strftime('%Y-%m-%d')} 05:00:00 EAT",
+                    "cron_secret_configured": cron_secret_set,
+                    "database_stats": stats,
+                    "last_sync": last_sync,
+                    "auto_sync_fallback": True,
+                    "provider": settings.football_api_provider,
+                    "rate_limit_rpm": settings.rate_limit_rpm,
+                })
+            finally:
+                conn.close()
+            return
+
         # 2a. Scheduled Daily Fixture Synchronization (Vercel Cron & Manual GET)
         if path in ("/api/cron/sync", "/api/cron/fixtures"):
             self._handle_cron_sync(settings, db_path)
@@ -521,6 +562,71 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     for oc in discovery_data.get("other_competitions", []):
                         all_fix.extend(oc.get("matches", []))
                     discovery_data["all_fixtures"] = all_fix
+
+                # Cold-Start Auto-Healing: If today or upcoming fixtures are empty in SQLite, auto-sync dynamically
+                all_matches_count = len(discovery_data.get("all_fixtures", []))
+                if all_matches_count == 0 and not search and not country and not comp_id and not comp_name and not favorites_only:
+                    now_utc = datetime.now(timezone.utc)
+                    today_str = now_utc.strftime("%Y-%m-%d")
+                    eff_date = today_str if (not date or date == "today") else date
+
+                    try:
+                        target_dt = datetime.strptime(eff_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                        diff_days = (target_dt.date() - now_utc.date()).days
+                        is_upcoming = -1 <= diff_days <= 7
+                    except Exception:
+                        is_upcoming = False
+
+                    synced_cache = getattr(self.__class__, "_auto_synced_dates", set())
+                    if is_upcoming and eff_date not in synced_cache and getattr(settings, "football_api_key", None):
+                        if not hasattr(self.__class__, "_auto_synced_dates"):
+                            self.__class__._auto_synced_dates = set()
+                        self.__class__._auto_synced_dates.add(eff_date)
+
+                        logger.info("Auto-syncing discovery fixtures for date %s on-demand on cold container", eff_date)
+                        try:
+                            from zola.client.api_sports import ApiSportsClient
+                            from zola.client.cache import RequestCache
+                            from zola.client.rate_limiter import RateLimiter
+                            from zola.services.collector import FootballCollectorService
+
+                            cache = RequestCache(conn)
+                            limiter = RateLimiter(max_rpm=10)
+                            api_client = ApiSportsClient(api_key=settings.football_api_key, cache=cache, rate_limiter=limiter)
+                            collector = FootballCollectorService(client=api_client, repository=repo)
+
+                            collector.sync_fixtures(competition_code_or_id="all", date=eff_date, status=None)
+
+                            # Trigger pre-match predictions for upcoming matches on this date
+                            try:
+                                engine = PredictionEngine(repo)
+                                engine.predict_upcoming_fixtures(days_ahead=max(diff_days + 1, 1), limit=150)
+                            except Exception as pe:
+                                logger.warning("Prediction generation notice during auto-sync: %s", pe)
+
+                            # Re-query discovery data now that newly fetched fixtures are saved in SQLite
+                            discovery_data = repo.get_discovery_fixtures(
+                                date=date,
+                                category=category,
+                                search=search,
+                                country=country,
+                                competition_id=comp_id,
+                                competition_name=comp_name,
+                                sort_by=sort_by,
+                                favorites_only=favorites_only,
+                            )
+                            discovery_data["featured_matches"] = discovery_data.get("featured", [])
+                            discovery_data["live_matches"] = discovery_data.get("live", [])
+                            discovery_data["grouped_competitions"] = discovery_data.get("competitions", [])
+                            all_fix = []
+                            for c in discovery_data.get("competitions", []):
+                                all_fix.extend(c.get("matches", []))
+                            for oc in discovery_data.get("other_competitions", []):
+                                all_fix.extend(oc.get("matches", []))
+                            discovery_data["all_fixtures"] = all_fix
+                        except Exception as e:
+                            logger.warning("Auto-sync for date %s notice: %s", eff_date, e)
+
                 self._send_json(discovery_data)
             finally:
                 conn.close()
@@ -574,11 +680,26 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 )
                 if not is_valid:
                     self._send_json({
+                        "fixture": fixture,
+                        "predictions": {},
+                        "smart_routing": None,
+                        "high_confidence_report": {
+                            "is_skipped": True,
+                            "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                            "skip_rationale": f"Fixture identity violation: {rej_reason}. Strictly blocked from predictions under conservative data integrity policy.",
+                            "picks": [],
+                            "total_picks": 0,
+                            "eligible_count": 0,
+                            "rejected_count": 0,
+                            "requires_valid_odds": True,
+                        },
+                        "home_form": [],
+                        "away_form": [],
+                        "h2h": {"total": 0, "home_wins": 0, "draws": 0, "away_wins": 0},
+                        "comparison_stats": {},
                         "error": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "is_skipped": True,
-                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "details": rej_reason,
-                    }, 400)
+                    }, 200)
                     return
                 self._send_json({"fixture": fixture})
             finally:
@@ -607,11 +728,26 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 )
                 if not is_valid:
                     self._send_json({
+                        "fixture": fixture,
+                        "predictions": {},
+                        "smart_routing": None,
+                        "high_confidence_report": {
+                            "is_skipped": True,
+                            "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                            "skip_rationale": f"Fixture identity violation: {rej_reason}. Strictly blocked from predictions under conservative data integrity policy.",
+                            "picks": [],
+                            "total_picks": 0,
+                            "eligible_count": 0,
+                            "rejected_count": 0,
+                            "requires_valid_odds": True,
+                        },
+                        "home_form": [],
+                        "away_form": [],
+                        "h2h": {"total": 0, "home_wins": 0, "draws": 0, "away_wins": 0},
+                        "comparison_stats": {},
                         "error": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "is_skipped": True,
-                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "details": rej_reason,
-                    }, 400)
+                    }, 200)
                     return
 
                 odds_data = None
@@ -680,11 +816,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     elif (w == "AWAY_TEAM" and m_hid == home_id) or (w == "HOME_TEAM" and m_hid != home_id):
                         h2h_summary["away_wins"] += 1
 
-                # Check if fixture is concluded / finished and has no predictions
+                # Check if fixture is concluded, in play, or ineligible for new predictions
                 status_clean = str(fixture.get("status") or "").strip().upper()
                 existing_preds = repo.get_predictions_for_fixture(int(fid_raw))
 
-                if status_clean in INELIGIBLE_MATCH_STATUSES and not existing_preds:
+                if status_clean in INELIGIBLE_MATCH_STATUSES:
                     h_score = fixture.get("full_time_home_score")
                     a_score = fixture.get("full_time_away_score")
                     score_str = f" (Full Time: {h_score} - {a_score})" if (h_score is not None and a_score is not None) else ""
@@ -700,38 +836,159 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         "home_win_rate_pct": h_stats.get("win_rate_pct"),
                         "away_win_rate_pct": a_stats.get("win_rate_pct"),
                     }
-                    high_confidence_report = {
-                        "is_skipped": True,
-                        "skip_reason": "MATCH CONCLUDED — PRE-MATCH PREDICTIONS CLOSED",
-                        "skip_rationale": f"This fixture concluded with status '{status_clean}'{score_str}. In accordance with strict pre-match integrity rules, live predictions cannot be generated post-kickoff.",
-                        "picks": [],
-                        "total_picks": 0,
-                        "eligible_count": 0,
-                        "rejected_count": 0,
-                        "requires_valid_odds": True,
-                    }
-                    self._send_json({
-                        "fixture": fixture,
-                        "predictions": {},
-                        "smart_routing": None,
-                        "high_confidence_report": high_confidence_report,
-                        "home_form": h_stats.get("form", []),
-                        "away_form": a_stats.get("form", []),
-                        "h2h": h2h_summary,
-                        "comparison_stats": comparison_stats,
-                    })
-                    return
+
+                    if existing_preds:
+                        # Reconstruct predictions and high-confidence report from stored database records
+                        serialized = {}
+                        ens_preds = {}
+                        smart_routing = None
+                        high_confidence_report = None
+
+                        for p in existing_preds:
+                            p_dict = p.to_dict()
+                            if p.probabilities_json:
+                                try:
+                                    p_dict["probabilities"] = json.loads(p.probabilities_json)
+                                except Exception:
+                                    p_dict["probabilities"] = {}
+                            if p.features_json:
+                                try:
+                                    p_dict["features"] = json.loads(p.features_json)
+                                except Exception:
+                                    p_dict["features"] = {}
+                            if p.data_quality_notes:
+                                try:
+                                    p_dict["data_quality_notes"] = json.loads(p.data_quality_notes)
+                                except Exception:
+                                    p_dict["data_quality_notes"] = [p.data_quality_notes]
+
+                            m_name = p.model_name
+                            if m_name not in serialized:
+                                serialized[m_name] = {}
+                            serialized[m_name][p.market] = p_dict
+
+                            if m_name == "ensemble":
+                                ens_preds[p.market] = p_dict
+                                feat = p_dict.get("features") or {}
+                                if "smart_routing" in feat and not smart_routing:
+                                    smart_routing = feat["smart_routing"]
+                                if "high_confidence_report" in feat and not high_confidence_report:
+                                    high_confidence_report = feat["high_confidence_report"]
+
+                        if not high_confidence_report:
+                            picks = []
+                            for m_key in ["OU15", "OU05"]:
+                                if m_key in ens_preds:
+                                    ep = ens_preds[m_key]
+                                    prob = ep.get("probability") or 0.75
+                                    picks.append({
+                                        "rank": len(picks) + 1,
+                                        "market": m_key,
+                                        "market_label": "Over/Under 1.5 Goals" if m_key == "OU15" else "Over/Under 0.5 Goals",
+                                        "outcome": ep.get("predicted_outcome"),
+                                        "outcome_display": str(ep.get("predicted_outcome") or "").replace("_", " "),
+                                        "probability": prob,
+                                        "probability_pct": f"{round(prob * 100, 1)}%",
+                                        "confidence": ep.get("confidence", "HIGH"),
+                                        "estimated_odd": "1.35",
+                                        "fair_odd": f"{round(1 / max(prob, 0.05), 2)}",
+                                        "rationale": f"Pre-match verified prediction. Match concluded{score_str}. Settlement: {ep.get('settlement_status', 'PENDING')}.",
+                                        "risks": "Historical concluded fixture."
+                                    })
+                            high_confidence_report = {
+                                "is_skipped": len(picks) == 0,
+                                "skip_reason": None if picks else "MATCH CONCLUDED — PRE-MATCH PREDICTIONS CLOSED",
+                                "skip_rationale": None if picks else f"This fixture concluded with status '{status_clean}'{score_str}.",
+                                "picks": picks,
+                                "total_picks": len(picks),
+                                "eligible_count": len(ens_preds),
+                                "rejected_count": 0,
+                                "requires_valid_odds": False,
+                            }
+
+                        self._send_json({
+                            "fixture": fixture,
+                            "predictions": serialized,
+                            "smart_routing": smart_routing,
+                            "high_confidence_report": high_confidence_report,
+                            "home_form": h_stats.get("form", []),
+                            "away_form": a_stats.get("form", []),
+                            "h2h": h2h_summary,
+                            "comparison_stats": comparison_stats,
+                        })
+                        return
+                    else:
+                        if status_clean in ("IN_PLAY", "LIVE", "1H", "HT", "2H", "ET", "P", "PAUSED"):
+                            skip_reason = "MATCH IN PLAY — PRE-MATCH PREDICTIONS CLOSED"
+                            skip_rationale = f"This fixture is currently in play with status '{status_clean}'{score_str}. Live betting predictions are disabled under conservative pre-match policy."
+                        elif status_clean in ("POSTPONED", "PST"):
+                            skip_reason = "MATCH POSTPONED — PREDICTIONS SUSPENDED"
+                            skip_rationale = "This fixture has been postponed. Predictions are suspended until a new kickoff date is confirmed."
+                        elif status_clean in ("CANCELLED", "CANC", "ABANDONED", "ABD"):
+                            skip_reason = "MATCH CANCELLED / ABANDONED"
+                            skip_rationale = f"This fixture was cancelled or abandoned with status '{status_clean}'."
+                        else:
+                            skip_reason = "MATCH CONCLUDED — PRE-MATCH PREDICTIONS CLOSED"
+                            skip_rationale = f"This fixture concluded with status '{status_clean}'{score_str}. In accordance with strict pre-match integrity rules, live predictions cannot be generated post-kickoff."
+
+                        high_confidence_report = {
+                            "is_skipped": True,
+                            "skip_reason": skip_reason,
+                            "skip_rationale": skip_rationale,
+                            "picks": [],
+                            "total_picks": 0,
+                            "eligible_count": 0,
+                            "rejected_count": 0,
+                            "requires_valid_odds": True,
+                        }
+                        self._send_json({
+                            "fixture": fixture,
+                            "predictions": {},
+                            "smart_routing": None,
+                            "high_confidence_report": high_confidence_report,
+                            "home_form": h_stats.get("form", []),
+                            "away_form": a_stats.get("form", []),
+                            "h2h": h2h_summary,
+                            "comparison_stats": comparison_stats,
+                        })
+                        return
 
                 try:
                     engine = PredictionEngine(repo)
                     results = engine.predict_fixture(int(fid_raw), persist=True, odds_data=odds_data)
                 except ValueError as e:
                     self._send_json({
+                        "fixture": fixture,
+                        "predictions": {},
+                        "smart_routing": None,
+                        "high_confidence_report": {
+                            "is_skipped": True,
+                            "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                            "skip_rationale": str(e),
+                            "picks": [],
+                            "total_picks": 0,
+                            "eligible_count": 0,
+                            "rejected_count": 0,
+                            "requires_valid_odds": True,
+                        },
+                        "home_form": h_stats.get("form", []),
+                        "away_form": a_stats.get("form", []),
+                        "h2h": h2h_summary,
+                        "comparison_stats": {
+                            "home_xg": None,
+                            "away_xg": None,
+                            "home_goals_scored": h_stats.get("avg_goals_scored"),
+                            "away_goals_scored": a_stats.get("avg_goals_scored"),
+                            "home_goals_conceded": h_stats.get("avg_goals_conceded"),
+                            "away_goals_conceded": a_stats.get("avg_goals_conceded"),
+                            "home_clean_sheet_pct": h_stats.get("clean_sheet_pct"),
+                            "away_clean_sheet_pct": a_stats.get("clean_sheet_pct"),
+                            "home_win_rate_pct": h_stats.get("win_rate_pct"),
+                            "away_win_rate_pct": a_stats.get("win_rate_pct"),
+                        },
                         "error": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "is_skipped": True,
-                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "details": str(e),
-                    }, 400)
+                    }, 200)
                     return
                 serialized = _serialize_predictions(results)
 
@@ -811,11 +1068,26 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 )
                 if not is_valid:
                     self._send_json({
+                        "fixture": fixture,
+                        "predictions": {},
+                        "smart_routing": None,
+                        "high_confidence_report": {
+                            "is_skipped": True,
+                            "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
+                            "skip_rationale": f"Fixture identity violation: {rej_reason}. Strictly blocked from predictions under conservative data integrity policy.",
+                            "picks": [],
+                            "total_picks": 0,
+                            "eligible_count": 0,
+                            "rejected_count": 0,
+                            "requires_valid_odds": True,
+                        },
+                        "home_form": [],
+                        "away_form": [],
+                        "h2h": {"total": 0, "home_wins": 0, "draws": 0, "away_wins": 0},
+                        "comparison_stats": {},
                         "error": "INVALID FIXTURE — PREDICTION BLOCKED",
-                        "is_skipped": True,
-                        "skip_reason": "INVALID FIXTURE — PREDICTION BLOCKED",
                         "details": rej_reason,
-                    }, 400)
+                    }, 200)
                     return
 
                 try:

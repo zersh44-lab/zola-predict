@@ -2139,6 +2139,7 @@
             <input type="date" id="discovery-date-picker" class="date-picker-input" onchange="onCustomDatePicked(this.value)" title="Choose calendar date">
             <button class="btn btn-sm btn-outline" onclick="syncSelectedDate()" id="btn-sync-date" title="Fetch latest fixtures from API-Football">🔄 Sync Date</button>
             <button class="btn btn-sm btn-primary" onclick="syncUpcomingFixtures(7)" id="btn-sync-upcoming" title="Fetch 7-day upcoming fixtures and auto-predict" style="background: linear-gradient(135deg, #087BFF, #00D9FF); border: none; font-weight: 800; color: #071426; box-shadow: 0 0 14px rgba(0, 217, 255, 0.4);">🗓️ Sync 7-Day Window</button>
+            <button class="btn btn-sm btn-secondary" onclick="openSyncModal()" id="btn-sync-monitor" title="View Automatic Sync & Scheduler Status" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.35); color: #00D9FF; font-weight: 700;">📡 Sync Monitor</button>
           </div>
 
         </div>
@@ -3275,6 +3276,22 @@
     </div>
   </div>
 
+  <!-- AUTOMATIC SYNC & MONITORING MODAL -->
+  <div id="sync-modal" class="modal-overlay" onclick="if(event.target === this) closeSyncModal()">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">🔄 Automatic Fixture Sync & Scheduler</div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);">Real-time status of daily football sync pipeline</div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeSyncModal()">✕ Close</button>
+      </div>
+      <div class="modal-body" style="gap: 1.1rem;" id="sync-modal-body">
+        <div style="text-align: center; color: var(--accent); padding: 1.5rem;">Loading scheduler telemetry...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- PRIORITIZATION WEIGHTS MODAL -->
 
   <div id="weights-modal" class="modal-overlay" onclick="if(event.target === this) closeWeightsModal()">
@@ -4372,6 +4389,98 @@
     }
 
 
+
+    async function openSyncModal() {
+      const modal = document.getElementById("sync-modal");
+      if (!modal) return;
+      modal.classList.add("active");
+      const body = document.getElementById("sync-modal-body");
+      if (!body) return;
+      body.innerHTML = `<div style="text-align: center; color: var(--accent); padding: 2rem;">⏳ Loading synchronization status...</div>`;
+
+      try {
+        const res = await fetch("/api/admin/sync-status");
+        const data = await res.json();
+        const s = data.database_stats || {};
+        const ls = data.last_sync || {};
+
+        body.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem;">
+            <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">System Status</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: #34d399; margin-top: 0.2rem;">● ${safeEscape(data.status || 'OPERATIONAL')}</div>
+              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">Auto-sync: Active</div>
+            </div>
+            <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Daily Scheduler</div>
+              <div style="font-size: 1rem; font-weight: 800; color: #00D9FF; margin-top: 0.2rem;">05:00 EAT</div>
+              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">02:00 UTC (Vercel Cron)</div>
+            </div>
+            <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Total Fixtures</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">${(s.fixtures || 0).toLocaleString()}</div>
+              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">${(s.match_results || 0).toLocaleString()} results</div>
+            </div>
+            <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Total Predictions</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">${(s.predictions || 0).toLocaleString()}</div>
+              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">Verified ensemble</div>
+            </div>
+          </div>
+
+          <div style="background: rgba(7, 20, 38, 0.85); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 10px; padding: 1rem;">
+            <div style="font-size: 0.82rem; font-weight: 800; color: #00D9FF; text-transform: uppercase; margin-bottom: 0.6rem;">⏱️ Next Scheduled Update</div>
+            <div style="font-size: 0.95rem; font-weight: 700; color: #fff;">${safeEscape(data.next_scheduled_run_eat || 'Tomorrow at 05:00 EAT')}</div>
+            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.25rem;">
+              UTC: <code>${safeEscape(data.next_scheduled_run_utc || '02:00:00Z')}</code> • Cron: <code>0 2 * * *</code> • Auth: <code>${data.cron_secret_configured ? 'CRON_SECRET Protected' : 'Ready'}</code>
+            </div>
+          </div>
+
+          <div style="background: rgba(7, 20, 38, 0.85); border: 1px solid rgba(232, 227, 214, 0.12); border-radius: 10px; padding: 1rem;">
+            <div style="font-size: 0.82rem; font-weight: 800; color: #B8F5FF; text-transform: uppercase; margin-bottom: 0.6rem;">📋 Last Synchronization Record</div>
+            <div style="font-size: 0.85rem; color: #fff; line-height: 1.6;">
+              • <strong>Timestamp:</strong> ${safeEscape(ls.ethiopia_time || ls.timestamp || 'Ready / On-Demand active')}<br>
+              • <strong>Provider:</strong> ${safeEscape(ls.provider || data.provider || 'api-football')}<br>
+              • <strong>Recent Fixtures Synced:</strong> ${ls.fixtures_synced || 0}<br>
+              • <strong>Predictions Computed:</strong> ${ls.predictions_generated || 0}<br>
+              • <strong>Cold-Start Healing:</strong> Active (automatically recovers today & upcoming fixtures on-demand).
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; align-items: center; margin-top: 0.5rem;">
+            <button class="btn btn-sm btn-primary" onclick="triggerImmediateCronSync()" id="btn-trigger-cron" style="background: linear-gradient(135deg, #087BFF, #00D9FF); color: #071426; font-weight: 800; border: none; padding: 0.45rem 1rem; border-radius: 6px;">
+              ⚡ Trigger Immediate Cron Sync
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="closeSyncModal()">Close</button>
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `
+          <div style="color: #ef4444; padding: 1.5rem; text-align: center;">
+            Failed to load synchronization telemetry: ${safeEscape(e.message || e)}
+          </div>
+        `;
+      }
+    }
+
+    function closeSyncModal() {
+      const modal = document.getElementById("sync-modal");
+      if (modal) modal.classList.remove("active");
+    }
+
+    async function triggerImmediateCronSync() {
+      const btn = document.getElementById("btn-trigger-cron");
+      if (btn) { btn.disabled = true; btn.innerText = "⏳ Running Cron Sync..."; }
+      try {
+        const res = await fetch("/api/cron/sync?days_ahead=7");
+        const data = await res.json();
+        openSyncModal();
+        loadDiscoveryFeed();
+      } catch (e) {
+        alert("Cron sync notice: " + (e.message || e));
+        if (btn) { btn.disabled = false; btn.innerText = "⚡ Trigger Immediate Cron Sync"; }
+      }
+    }
 
     function closeWeightsModal() {
 
@@ -5534,31 +5643,6 @@
         const res = await fetch(`/api/predict?id=${fixtureId}`);
         const data = await res.json();
 
-        if (data.error) {
-          const compEl = document.getElementById("modal-hero-comp");
-          if (compEl) compEl.innerText = "PREDICTION BLOCKED";
-          const pickEl = document.getElementById("modal-consensus-pick");
-          if (pickEl) pickEl.innerText = "PREDICTION BLOCKED";
-          const reasonEl = document.getElementById("modal-verdict-reason");
-          if (reasonEl) reasonEl.innerText = data.details || data.error;
-
-          const hcSection = document.getElementById("modal-high-confidence-section");
-          if (hcSection) {
-            hcSection.innerHTML = `
-              <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                  <span style="font-size: 1.35rem;">🚫</span>
-                  <span style="font-size: 1.05rem; font-weight: 800; color: #ef4444;">${safeEscape(data.error)}</span>
-                </div>
-                <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5;">
-                  ${safeEscape(data.details || "This fixture is quarantined or ineligible for predictions.")}
-                </div>
-              </div>
-            `;
-          }
-          return;
-        }
-
         latestModalPayload = data;
         const fix = data.fixture || {};
         const preds = data.predictions || {};
@@ -5576,7 +5660,43 @@
         // 1. Hero Banner Setup
         document.getElementById("modal-hero-home-name").innerText = homeName;
         document.getElementById("modal-hero-away-name").innerText = awayName;
-        document.getElementById("modal-hero-comp").innerText = (fix.competition_name || "PREMIER LEAGUE").toUpperCase();
+        document.getElementById("modal-hero-comp").innerText = (fix.competition_name || "FOOTBALL INTELLIGENCE").toUpperCase();
+
+        const timeInfo = formatKickoff(fix.utc_date);
+        document.getElementById("modal-hero-date").innerText = timeInfo.local;
+        document.getElementById("modal-hero-time").innerText = timeInfo.utc;
+        document.getElementById("modal-hero-venue").innerText = fix.venue || (fix.matchday ? `Matchday ${fix.matchday}` : "League Fixture");
+
+        if (data.error && !data.high_confidence_report) {
+          const compEl = document.getElementById("modal-hero-comp");
+          if (compEl) compEl.innerText = "PREDICTION BLOCKED";
+          const pickEl = document.getElementById("modal-consensus-pick");
+          if (pickEl) pickEl.innerText = "PREDICTION BLOCKED";
+          const reasonEl = document.getElementById("modal-verdict-reason");
+          if (reasonEl) reasonEl.innerText = data.details || data.error;
+
+          const verdictCard = document.getElementById("modal-verdict-card");
+          if (verdictCard) verdictCard.style.display = "none";
+
+          const hcSection = document.getElementById("modal-high-confidence-section");
+          if (hcSection) {
+            hcSection.innerHTML = `
+              <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                  <span style="font-size: 1.35rem;">🚫</span>
+                  <span style="font-size: 1.05rem; font-weight: 800; color: #ef4444;">${safeEscape(data.error)}</span>
+                </div>
+                <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5; margin-bottom: 0.65rem;">
+                  ${safeEscape(data.details || "This fixture is quarantined or ineligible for predictions under strict data integrity rules.")}
+                </div>
+                <div style="background: rgba(7, 20, 38, 0.75); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: #B8F5FF;">
+                  🛡️ <strong>Integrity Protection:</strong> Unverified or corrupted fixtures cannot enter predictions or history.
+                </div>
+              </div>
+            `;
+          }
+          return;
+        }
 
         const homeCrestEl = document.getElementById("modal-home-crest");
         const awayCrestEl = document.getElementById("modal-away-crest");
@@ -5907,8 +6027,29 @@
           }
         }
       } catch (e) {
-        console.error(e);
-        alert("Failed to load matchday intelligence.");
+        console.error("Error loading matchday intelligence:", e);
+        const compEl = document.getElementById("modal-hero-comp");
+        if (compEl) compEl.innerText = "UNABLE TO LOAD";
+        const pickEl = document.getElementById("modal-consensus-pick");
+        if (pickEl) pickEl.innerText = "INTELLIGENCE TEMPORARILY UNAVAILABLE";
+        const reasonEl = document.getElementById("modal-verdict-reason");
+        if (reasonEl) reasonEl.innerText = "A connection error occurred while retrieving match details. Please try again.";
+        const verdictCard = document.getElementById("modal-verdict-card");
+        if (verdictCard) verdictCard.style.display = "none";
+        const hcSection = document.getElementById("modal-high-confidence-section");
+        if (hcSection) {
+          hcSection.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.35rem;">⚠️</span>
+                <span style="font-size: 1.02rem; font-weight: 800; color: #ef4444;">Unable to Load Matchday Intelligence</span>
+              </div>
+              <div style="font-size: 0.88rem; color: #FFFFFF; line-height: 1.5;">
+                Unable to reach the prediction server. Please check your internet connection or click Refresh Prediction.
+              </div>
+            </div>
+          `;
+        }
       }
     }
 

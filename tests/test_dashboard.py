@@ -171,6 +171,92 @@ def test_api_predict_finished_fixture(test_dashboard_server):
         assert "MATCH CONCLUDED" in data["high_confidence_report"]["skip_reason"]
 
 
+def test_api_predict_finished_fixture_with_existing_predictions(test_dashboard_server):
+    base_url, server = test_dashboard_server
+    from zola.database.connection import get_connection
+    from zola.database.repository import FootballRepository
+    from zola.database.models import Fixture, Prediction
+    conn = get_connection(server.settings.db_path)
+    repo = FootballRepository(conn)
+    f_fin = Fixture(
+        external_id="fin_with_preds_999",
+        provider="api-football",
+        competition_id=1,
+        season="2026",
+        matchday=2,
+        utc_date="2026-11-20T16:30:00+00:00",
+        status="FINISHED",
+        home_team_id=1,
+        away_team_id=2,
+    )
+    fid = repo.upsert_fixture(f_fin)
+
+    # Insert pre-match prediction
+    pred = Prediction(
+        fixture_id=fid,
+        model_name="ensemble",
+        market="OU15",
+        predicted_outcome="OVER_15",
+        probability=0.82,
+        probabilities_json=json.dumps({"OVER_15": 0.82, "UNDER_15": 0.18}),
+        confidence="HIGH",
+        status="SETTLED",
+        settlement_status="WIN",
+    )
+    repo.upsert_prediction(pred)
+    conn.close()
+
+    req = urllib.request.Request(f"{base_url}/api/predict?id={fid}")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert "predictions" in data
+        assert "ensemble" in data["predictions"]
+        assert data["predictions"]["ensemble"]["OU15"]["predicted_outcome"] == "OVER_15"
+        assert data["high_confidence_report"]["total_picks"] >= 1
+
+
+def test_api_predict_quarantined_fixture_returns_clean_skip(test_dashboard_server):
+    base_url, server = test_dashboard_server
+    from zola.database.connection import get_connection
+    from zola.database.repository import FootballRepository
+    from zola.database.models import Fixture
+    conn = get_connection(server.settings.db_path)
+    repo = FootballRepository(conn)
+    f_inv = Fixture(
+        external_id="inv_test_quarantine_777",
+        provider="api-football",
+        competition_id=1,
+        season="2026",
+        matchday=3,
+        utc_date="2026-11-22T16:30:00+00:00",
+        status="INVALID_FIXTURE_IDENTITY",
+        home_team_id=1,
+        away_team_id=2,
+    )
+    fid = repo.upsert_fixture(f_inv)
+    conn.close()
+
+    req = urllib.request.Request(f"{base_url}/api/predict?id={fid}")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["high_confidence_report"]["is_skipped"] is True
+        assert "INVALID FIXTURE — PREDICTION BLOCKED" in data["high_confidence_report"]["skip_reason"]
+
+
+def test_api_admin_sync_status(test_dashboard_server):
+    base_url, _ = test_dashboard_server
+    req = urllib.request.Request(f"{base_url}/api/admin/sync-status")
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["status"] == "OPERATIONAL"
+        assert "Vercel Cron" in data["scheduler"]
+        assert "05:00 Africa/Addis_Ababa" in data["schedule_human"]
+        assert "database_stats" in data
+
+
 def test_api_evaluate_predictions(test_dashboard_server):
     base_url, _ = test_dashboard_server
     req = urllib.request.Request(
