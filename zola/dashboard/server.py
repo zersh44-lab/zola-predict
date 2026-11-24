@@ -66,91 +66,96 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def _handle_history_sync(self, settings: Settings, db_path: str) -> None:
-        """Fetch finished match results for recent matchdays, persist scores, and evaluate predictions."""
-        from datetime import datetime, timedelta, timezone
+    def _sync_recent_history_internal(
+        self,
+        settings: Settings,
+        repo: FootballRepository,
+        conn: Any,
+    ) -> tuple[int, Dict[str, Any]]:
+        """Reconcile recently concluded match results across today and yesterday, persist scores, and evaluate predictions."""
         from zola.client.api_sports import ApiSportsClient
         from zola.database.models import MatchResult
-        from zola.services.collector import CALENDAR_RESULTS
 
-        conn = get_connection(db_path)
         synced_count = 0
-        evaluated_result = {}
+        cursor = conn.cursor()
+
+        if getattr(settings, "football_api_key", None):
+            client = ApiSportsClient(api_key=settings.football_api_key)
+            now_utc = datetime.now(timezone.utc)
+            # Query today and yesterday (the allowable range under API-Football Free tier)
+            dates = [
+                now_utc.strftime("%Y-%m-%d"),
+                (now_utc - timedelta(days=1)).strftime("%Y-%m-%d"),
+            ]
+            for d in dates:
+                try:
+                    fixtures, _, _ = client.get_fixtures(competition_code_or_id="all", date=d, status=None)
+                    finished = [
+                        f for f in fixtures
+                        if f.status in ("FINISHED", "FT", "AET", "PEN")
+                        or (f.result and f.result.full_time_home_score is not None)
+                    ]
+                    for sf in finished:
+                        if not sf.result or sf.result.full_time_home_score is None:
+                            continue
+                        cursor.execute("SELECT id FROM fixtures WHERE external_id = ?", (str(sf.external_id),))
+                        row = cursor.fetchone()
+                        fid = row["id"] if row else None
+                        if not fid and sf.home_team and sf.away_team:
+                            cursor.execute(
+                                """
+                                SELECT f.id FROM fixtures f
+                                JOIN teams ht ON f.home_team_id = ht.id
+                                JOIN teams at ON f.away_team_id = at.id
+                                WHERE (ht.external_id = ? AND at.external_id = ?)
+                                  AND substr(f.utc_date, 1, 10) = ?
+                                """,
+                                (str(sf.home_team.external_id), str(sf.away_team.external_id), d),
+                            )
+                            row2 = cursor.fetchone()
+                            fid = row2["id"] if row2 else None
+                        if not fid and sf.home_team and sf.away_team:
+                            cursor.execute(
+                                """
+                                SELECT f.id FROM fixtures f
+                                JOIN teams ht ON f.home_team_id = ht.id
+                                JOIN teams at ON f.away_team_id = at.id
+                                WHERE (LOWER(ht.name) LIKE ? OR LOWER(?) LIKE LOWER(ht.name))
+                                  AND (LOWER(at.name) LIKE ? OR LOWER(?) LIKE LOWER(at.name))
+                                  AND substr(f.utc_date, 1, 10) = ?
+                                """,
+                                (f"%{sf.home_team.name.lower()}%", sf.home_team.name.lower(),
+                                 f"%{sf.away_team.name.lower()}%", sf.away_team.name.lower(), d),
+                            )
+                            row3 = cursor.fetchone()
+                            fid = row3["id"] if row3 else None
+                        if fid:
+                            cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
+                            repo.upsert_match_result(
+                                MatchResult(
+                                    fixture_id=fid,
+                                    winner=sf.result.winner,
+                                    duration=sf.result.duration or "REGULAR",
+                                    full_time_home_score=sf.result.full_time_home_score,
+                                    full_time_away_score=sf.result.full_time_away_score,
+                                    half_time_home_score=sf.result.half_time_home_score,
+                                    half_time_away_score=sf.result.half_time_away_score,
+                                )
+                            )
+                            synced_count += 1
+                    conn.commit()
+                except Exception as e:
+                    logger.warning("History sync notice for date %s: %s", d, e)
+
+        evaluated_result = repo.evaluate_predictions()
+        return synced_count, evaluated_result
+
+    def _handle_history_sync(self, settings: Settings, db_path: str) -> None:
+        """Fetch finished match results for recent matchdays, persist scores, and evaluate predictions."""
+        conn = get_connection(db_path)
         try:
             repo = FootballRepository(conn)
-            cursor = conn.cursor()
-
-            # 1. Historical calendar reconciler permanently disabled for data integrity
-
-            # 2. Fetch live finished fixtures across rolling 4-day window if API key available
-            if settings.football_api_key:
-                client = ApiSportsClient(api_key=settings.football_api_key)
-                now_utc = datetime.now(timezone.utc)
-                dates = [
-                    (now_utc - timedelta(days=i)).strftime("%Y-%m-%d")
-                    for i in range(4, -1, -1)
-                ]
-                for d in dates:
-                    try:
-                        fixtures, _, _ = client.get_fixtures(competition_code_or_id="all", date=d, status=None)
-                        finished = [
-                            f for f in fixtures
-                            if f.status in ("FINISHED", "FT", "AET", "PEN")
-                            or (f.result and f.result.full_time_home_score is not None)
-                        ]
-                        for sf in finished:
-                            if not sf.result or sf.result.full_time_home_score is None:
-                                continue
-                            cursor.execute("SELECT id FROM fixtures WHERE external_id = ?", (str(sf.external_id),))
-                            row = cursor.fetchone()
-                            fid = row["id"] if row else None
-                            if not fid and sf.home_team and sf.away_team:
-                                cursor.execute(
-                                    """
-                                    SELECT f.id FROM fixtures f
-                                    JOIN teams ht ON f.home_team_id = ht.id
-                                    JOIN teams at ON f.away_team_id = at.id
-                                    WHERE (ht.external_id = ? AND at.external_id = ?)
-                                      AND substr(f.utc_date, 1, 10) = ?
-                                    """,
-                                    (str(sf.home_team.external_id), str(sf.away_team.external_id), d),
-                                )
-                                row2 = cursor.fetchone()
-                                fid = row2["id"] if row2 else None
-                            if not fid and sf.home_team and sf.away_team:
-                                cursor.execute(
-                                    """
-                                    SELECT f.id FROM fixtures f
-                                    JOIN teams ht ON f.home_team_id = ht.id
-                                    JOIN teams at ON f.away_team_id = at.id
-                                    WHERE (LOWER(ht.name) LIKE ? OR LOWER(?) LIKE LOWER(ht.name))
-                                      AND (LOWER(at.name) LIKE ? OR LOWER(?) LIKE LOWER(at.name))
-                                      AND substr(f.utc_date, 1, 10) = ?
-                                    """,
-                                    (f"%{sf.home_team.name.lower()}%", sf.home_team.name.lower(),
-                                     f"%{sf.away_team.name.lower()}%", sf.away_team.name.lower(), d),
-                                )
-                                row3 = cursor.fetchone()
-                                fid = row3["id"] if row3 else None
-                            if fid:
-                                cursor.execute("UPDATE fixtures SET status = 'FINISHED' WHERE id = ?", (fid,))
-                                repo.upsert_match_result(
-                                    MatchResult(
-                                        fixture_id=fid,
-                                        winner=sf.result.winner,
-                                        duration=sf.result.duration or "REGULAR",
-                                        full_time_home_score=sf.result.full_time_home_score,
-                                        full_time_away_score=sf.result.full_time_away_score,
-                                        half_time_home_score=sf.result.half_time_home_score,
-                                        half_time_away_score=sf.result.half_time_away_score,
-                                    )
-                                )
-                                synced_count += 1
-                        conn.commit()
-                    except Exception as e:
-                        logger.warning("History sync failed for date %s: %s", d, e)
-
-            evaluated_result = repo.evaluate_predictions()
+            synced_count, evaluated_result = self._sync_recent_history_internal(settings, repo, conn)
             self._send_json({
                 "status": "success",
                 "synced_fixtures": synced_count,
@@ -243,6 +248,14 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             except Exception as pe:
                 logger.warning("Prediction generation notice during cron sync: %s", pe)
 
+            # Reconcile recently concluded match results and evaluate prediction settlements
+            hist_settled = 0
+            eval_info: Dict[str, Any] = {}
+            try:
+                hist_settled, eval_info = self._sync_recent_history_internal(settings, repo, conn)
+            except Exception as he:
+                logger.warning("History reconciliation notice during cron sync: %s", he)
+
             elapsed_ms = int((time.time() - t0) * 1000)
             now_utc_str = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             ethiopia_str = format_kickoff_ethiopia(start_dt)
@@ -259,6 +272,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 "dates_synced": sync_res.get("dates", []),
                 "fixtures_synced": sync_res.get("fixtures_synced", 0),
                 "predictions_generated": pred_count,
+                "history_reconciled": hist_settled,
+                "predictions_evaluated": eval_info.get("evaluated", 0),
                 "elapsed_ms": elapsed_ms,
             }
             repo.save_setting("last_fixture_sync", sync_metadata)
@@ -1318,6 +1333,25 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             conn = get_connection(db_path)
             try:
                 repo = FootballRepository(conn)
+
+                # Automatic history reconciliation on cold boot or first history request of the day
+                now_utc = datetime.now(timezone.utc)
+                today_str = now_utc.strftime("%Y-%m-%d")
+                synced_cache = getattr(self.__class__, "_history_synced_dates", set())
+                if today_str not in synced_cache and getattr(settings, "football_api_key", None):
+                    if not hasattr(self.__class__, "_history_synced_dates"):
+                        self.__class__._history_synced_dates = set()
+                    self.__class__._history_synced_dates.add(today_str)
+                    try:
+                        self._sync_recent_history_internal(settings, repo, conn)
+                    except Exception as he:
+                        logger.warning("History auto-reconciliation notice on /api/history: %s", he)
+                else:
+                    try:
+                        repo.evaluate_predictions()
+                    except Exception:
+                        pass
+
                 data = repo.get_prediction_history(
                     limit=limit,
                     offset=offset,
