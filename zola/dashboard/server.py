@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import threading
+import time
 import urllib.parse
 import webbrowser
 from datetime import datetime, timedelta, timezone
@@ -98,6 +99,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     for sf in finished:
                         if not sf.result or sf.result.full_time_home_score is None:
                             continue
+
+                        # Anti-Premature Safeguard: Match kickoff must be in the past to be concluded
+                        if sf.utc_date:
+                            try:
+                                kickoff_dt = datetime.fromisoformat(sf.utc_date.replace("Z", "+00:00"))
+                                if kickoff_dt > now_utc:
+                                    continue
+                            except Exception:
+                                pass
+
                         cursor.execute("SELECT id FROM fixtures WHERE external_id = ?", (str(sf.external_id),))
                         row = cursor.fetchone()
                         fid = row["id"] if row else None
@@ -1334,14 +1345,12 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             try:
                 repo = FootballRepository(conn)
 
-                # Automatic history reconciliation on cold boot or first history request of the day
+                # Automatic history reconciliation on cold boot or periodically (15-minute cooldown)
                 now_utc = datetime.now(timezone.utc)
-                today_str = now_utc.strftime("%Y-%m-%d")
-                synced_cache = getattr(self.__class__, "_history_synced_dates", set())
-                if today_str not in synced_cache and getattr(settings, "football_api_key", None):
-                    if not hasattr(self.__class__, "_history_synced_dates"):
-                        self.__class__._history_synced_dates = set()
-                    self.__class__._history_synced_dates.add(today_str)
+                now_ts = time.time()
+                last_sync = getattr(self.__class__, "_last_history_sync_timestamp", 0.0)
+                if (now_ts - last_sync > 900) and getattr(settings, "football_api_key", None):
+                    self.__class__._last_history_sync_timestamp = now_ts
                     try:
                         self._sync_recent_history_internal(settings, repo, conn)
                     except Exception as he:

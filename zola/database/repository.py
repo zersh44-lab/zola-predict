@@ -1197,8 +1197,11 @@ class FootballRepository:
             sum_params.append(competition_id)
 
         if market_filter and market_filter != "all":
-            sum_query += " AND p.market = ?"
-            sum_params.append(market_filter)
+            if market_filter in ("RECOMMENDED", "PRIMARY"):
+                sum_query += " AND p.market IN ('OU05', 'DOUBLE_CHANCE', 'OU15', 'DNB')"
+            else:
+                sum_query += " AND p.market = ?"
+                sum_params.append(market_filter)
 
         if outcome_filter and outcome_filter != "all":
             if outcome_filter == "WIN":
@@ -1280,8 +1283,11 @@ class FootballRepository:
                 base_query += " AND EXISTS (SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble' AND (p.settlement_status = 'PUSH' OR p.status = 'PUSH'))"
 
         if market_filter and market_filter != "all":
-            base_query += " AND EXISTS (SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble' AND p.market = ?)"
-            params.append(market_filter)
+            if market_filter in ("RECOMMENDED", "PRIMARY"):
+                base_query += " AND EXISTS (SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble' AND p.market IN ('OU05', 'DOUBLE_CHANCE', 'OU15', 'DNB'))"
+            else:
+                base_query += " AND EXISTS (SELECT 1 FROM predictions p WHERE p.fixture_id = f.id AND p.model_name = 'ensemble' AND p.market = ?)"
+                params.append(market_filter)
 
         count_query = f"SELECT COUNT(*) FROM ({base_query})"
         cursor.execute(count_query, params)
@@ -1314,8 +1320,11 @@ class FootballRepository:
             """
             p_params: List[Any] = [fid]
             if market_filter and market_filter != "all":
-                p_query += " AND market = ?"
-                p_params.append(market_filter)
+                if market_filter in ("RECOMMENDED", "PRIMARY"):
+                    p_query += " AND market IN ('OU05', 'DOUBLE_CHANCE', 'OU15', 'DNB')"
+                else:
+                    p_query += " AND market = ?"
+                    p_params.append(market_filter)
             if outcome_filter and outcome_filter != "all":
                 if outcome_filter == "WIN":
                     p_query += " AND (settlement_status = 'WIN' OR is_correct = 1)"

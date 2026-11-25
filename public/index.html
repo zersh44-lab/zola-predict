@@ -2519,14 +2519,15 @@
 
       <!-- Market Category Quick-Filter Strip -->
       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem;">
-        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-right: 0.25rem;">Markets:</span>
-        <button class="btn btn-sm" id="qf-market-all" onclick="setHistoryMarketFilter('all')" style="background: rgba(8, 123, 255, 0.2); border: 1px solid #00D9FF; color: #FFFFFF; font-weight: 800; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">All Markets (69%)</button>
-        <button class="btn btn-sm" id="qf-market-ou05" onclick="setHistoryMarketFilter('OU05')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 0.5 (96.1% WR)</button>
-        <button class="btn btn-sm" id="qf-market-ou15" onclick="setHistoryMarketFilter('OU15')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 1.5 (83.9% WR)</button>
-        <button class="btn btn-sm" id="qf-market-dc" onclick="setHistoryMarketFilter('DOUBLE_CHANCE')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Double Chance (79.2% WR)</button>
-        <button class="btn btn-sm" id="qf-market-dnb" onclick="setHistoryMarketFilter('DNB')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">Draw No Bet (65.8% WR)</button>
-        <button class="btn btn-sm" id="qf-market-1x2" onclick="setHistoryMarketFilter('1X2')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">1X2 Match Winner (52.5% WR)</button>
-        <button class="btn btn-sm" id="qf-market-btts" onclick="setHistoryMarketFilter('BTTS')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">BTTS (53.7% WR)</button>
+        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-right: 0.25rem;">Filter:</span>
+        <button class="btn btn-sm" id="qf-market-all" onclick="setHistoryMarketFilter('all')" style="background: rgba(8, 123, 255, 0.2); border: 1px solid #00D9FF; color: #FFFFFF; font-weight: 800; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">All Markets</button>
+        <button class="btn btn-sm" id="qf-market-rec" onclick="setHistoryMarketFilter('RECOMMENDED')" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; font-weight: 800; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">🛡️ Recommended Picks (87% WR)</button>
+        <button class="btn btn-sm" id="qf-market-ou05" onclick="setHistoryMarketFilter('OU05')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 0.5 (86.5% WR)</button>
+        <button class="btn btn-sm" id="qf-market-dc" onclick="setHistoryMarketFilter('DOUBLE_CHANCE')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Double Chance (76.7% WR)</button>
+        <button class="btn btn-sm" id="qf-market-ou15" onclick="setHistoryMarketFilter('OU15')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">⭐ Over 1.5 (69.4% WR)</button>
+        <button class="btn btn-sm" id="qf-market-dnb" onclick="setHistoryMarketFilter('DNB')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">Draw No Bet (67.4% WR)</button>
+        <button class="btn btn-sm" id="qf-market-1x2" onclick="setHistoryMarketFilter('1X2')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">1X2 Match Winner</button>
+        <button class="btn btn-sm" id="qf-market-btts" onclick="setHistoryMarketFilter('BTTS')" style="background: rgba(13, 30, 54, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); color: #B8F5FF; font-weight: 700; border-radius: 20px; padding: 0.3rem 0.85rem; font-size: 0.76rem; cursor: pointer;">BTTS</button>
       </div>
 
       <!-- History Matches Feed List -->
@@ -6882,12 +6883,13 @@
         el.style.color = "#B8F5FF";
       });
       const targetId = m === "all" ? "qf-market-all" :
+        (m === "RECOMMENDED" ? "qf-market-rec" :
         (m === "OU05" ? "qf-market-ou05" :
         (m === "OU15" ? "qf-market-ou15" :
         (m === "DOUBLE_CHANCE" ? "qf-market-dc" :
         (m === "DNB" ? "qf-market-dnb" :
         (m === "1X2" ? "qf-market-1x2" :
-        (m === "BTTS" ? "qf-market-btts" : "qf-market-all"))))));
+        (m === "BTTS" ? "qf-market-btts" : "qf-market-all")))))));
       const activeBtn = document.getElementById(targetId);
       if (activeBtn) {
         activeBtn.style.background = "rgba(8, 123, 255, 0.25)";
@@ -7014,8 +7016,8 @@
           const isAwayWinner = score.winner === "AWAY_TEAM";
           const isDraw = score.winner === "DRAW";
 
-          // Identify Primary Pick from Approved Markets Only (OU15, OU05)
-          const safeOrder = ["OU15", "OU05"];
+          // Identify Primary Pick from Approved Markets (Prioritizing High-Confidence OU05, DOUBLE_CHANCE, OU15, DNB)
+          const safeOrder = ["OU05", "DOUBLE_CHANCE", "OU15", "DNB"];
           let primaryPick = null;
           for (let mKey of safeOrder) {
             const found = preds.find(p => p.market === mKey);
@@ -7025,20 +7027,23 @@
             }
           }
           if (!primaryPick && preds.length > 0) {
-            const approved = preds.find(p => ["OU15", "OU05"].includes(p.market));
-            primaryPick = approved || null;
+            primaryPick = preds[0];
           }
 
           let primaryBannerHtml = "";
+          let verdictBadge = "";
           if (primaryPick) {
             const pSettle = primaryPick.settlement_status || "PENDING";
             let pBadge = "";
             if (pSettle === "WIN") {
               pBadge = `<span style="background: rgba(52, 211, 153, 0.22); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.5); box-shadow: 0 0 10px rgba(52, 211, 153, 0.25); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">✓ WON</span>`;
+              verdictBadge = `<span style="background: rgba(52, 211, 153, 0.22); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.5); font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 6px; font-weight: 800; letter-spacing: 0.04em;">✓ VERDICT: WON</span>`;
             } else if (pSettle === "LOSS") {
               pBadge = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">✗ LOST</span>`;
+              verdictBadge = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 6px; font-weight: 800; letter-spacing: 0.04em;">✗ VERDICT: LOST</span>`;
             } else if (pSettle === "PUSH") {
               pBadge = `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); font-size: 0.78rem; font-weight: 800; padding: 0.22rem 0.65rem; border-radius: 6px;">↺ PUSH</span>`;
+              verdictBadge = `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); font-size: 0.72rem; padding: 0.15rem 0.55rem; border-radius: 6px; font-weight: 800; letter-spacing: 0.04em;">↺ VERDICT: PUSH</span>`;
             }
             primaryBannerHtml = `
               <div style="background: rgba(8, 123, 255, 0.12); border: 1px solid rgba(0, 217, 255, 0.28); border-radius: 8px; padding: 0.65rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
@@ -7116,10 +7121,11 @@
                   <span style="font-weight: 700; color: #fff; font-size: 0.88rem;">${compName}</span>
                   <span style="color: var(--text-muted); font-size: 0.75rem;">• ${formatKickoffDate(item.utc_date)}</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                  ${verdictBadge}
                   <span style="background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.35); font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 6px; font-weight: 800; letter-spacing: 0.05em;">FINISHED</span>
                   <span style="font-size: 0.75rem; color: var(--text-muted); background: rgba(0,0,0,0.3); padding: 0.15rem 0.5rem; border-radius: 6px;">
-                    ${csum.wins || 0}W / ${csum.losses || 0}L${csum.pushes ? ` / ${csum.pushes}P` : ''}
+                    ${csum.wins || 0}W / ${csum.losses || 0}L
                   </span>
                 </div>
               </div>
