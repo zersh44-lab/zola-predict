@@ -49,3 +49,14 @@ def test_evaluate_predictions_logic(in_memory_db: sqlite3.Connection):
     assert len(metrics) > 0
     poisson_1x2 = [m for m in metrics if m.model_name == "poisson" and m.market == "1X2"][0]
     assert poisson_1x2.accuracy_rate == 1.0
+
+
+def test_repository_plain_connection_ensures_row_factory(in_memory_db: sqlite3.Connection):
+    """Test that FootballRepository automatically configures row_factory on plain connections."""
+    in_memory_db.row_factory = None
+    repo = FootballRepository(in_memory_db)
+    assert in_memory_db.row_factory is sqlite3.Row
+    # Ensure evaluate_predictions runs without tuple index errors
+    stats = repo.evaluate_predictions()
+    assert isinstance(stats, dict)
+

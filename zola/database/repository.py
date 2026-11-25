@@ -28,6 +28,8 @@ class FootballRepository:
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        if hasattr(conn, "row_factory") and conn.row_factory is None:
+            conn.row_factory = sqlite3.Row
 
     # ---------------------------------------------------------
     # Competitions
@@ -909,10 +911,20 @@ class FootballRepository:
         )
         metric_rows = cursor.fetchall()
         for mr_row in metric_rows:
-            total = mr_row["total"] or 0
-            correct = mr_row["correct"] or 0
-            pushes = mr_row["pushes"] or 0
-            voids = mr_row["voids"] or 0
+            if isinstance(mr_row, (dict, sqlite3.Row)):
+                m_model = mr_row["model_name"]
+                m_market = mr_row["market"]
+                total = mr_row["total"] or 0
+                correct = mr_row["correct"] or 0
+                pushes = mr_row["pushes"] or 0
+                voids = mr_row["voids"] or 0
+            else:
+                m_model = mr_row[0]
+                m_market = mr_row[1]
+                total = mr_row[2] or 0
+                correct = mr_row[3] or 0
+                pushes = mr_row[4] or 0
+                voids = mr_row[5] or 0
             rate = round(correct / total, 4) if total > 0 else 0.0
 
             cursor.execute(
@@ -925,11 +937,11 @@ class FootballRepository:
                   AND f.status NOT LIKE 'INVALID%'
                   AND f.status != 'INVALID_FIXTURE_IDENTITY';
                 """,
-                (mr_row["model_name"], mr_row["market"]),
+                (m_model, m_market),
             )
             prob_rows = cursor.fetchall()
-            y_true = [int(pr["is_correct"]) for pr in prob_rows]
-            y_prob = [float(pr["probability"]) for pr in prob_rows]
+            y_true = [int(pr["is_correct"] if isinstance(pr, (dict, sqlite3.Row)) else pr[1]) for pr in prob_rows]
+            y_prob = [float(pr["probability"] if isinstance(pr, (dict, sqlite3.Row)) else pr[0]) for pr in prob_rows]
 
             bs = brier_score(y_true, y_prob) if y_true else None
             ll = log_loss_score(y_true, y_prob) if y_true else None
