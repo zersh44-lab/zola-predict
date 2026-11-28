@@ -207,6 +207,10 @@ class ApiSportsClient(BaseFootballClient):
                 )
                 return fixtures, from_cache, elapsed_ms
             except FootballApiError as e:
+                err_text = str(e).lower()
+                if "free plans do not have access to this date" in err_text or "plan" in err_text:
+                    logger.info("API-Football Free tier date limit reached for date %s: %s", date, e)
+                    return [], False, 0
                 logger.error("API-Football error querying fixtures for date %s: %s", date, e)
                 raise
 

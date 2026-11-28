@@ -70,8 +70,10 @@ class Settings:
 
     def get_credentials_status(self) -> Dict[str, str]:
         """Return a mapping of variable name to PRESENT or MISSING status."""
+        fb_status = "PRESENT" if bool(self.football_api_key and self.football_api_key.strip()) else "MISSING"
         return {
-            "FOOTBALL_API_KEY": "PRESENT" if bool(self.football_api_key and self.football_api_key.strip()) else "MISSING",
+            "FOOTBALL_API_KEY": fb_status,
+            "API_FOOTBALL_KEY": fb_status,
             "GEMINI_API_KEY": "PRESENT" if bool(self.gemini_api_key and self.gemini_api_key.strip()) else "MISSING",
             "TELEGRAM_BOT_TOKEN": "PRESENT" if bool(self.telegram_bot_token and self.telegram_bot_token.strip()) else "MISSING",
             "TELEGRAM_CHAT_ID": "PRESENT" if bool(self.telegram_chat_id and self.telegram_chat_id.strip()) else "MISSING",
@@ -96,7 +98,7 @@ def load_settings(env_file: Optional[Path | str] = None) -> Settings:
             load_dotenv()
 
     # Read values safely
-    raw_football_key = os.getenv("FOOTBALL_API_KEY", "").strip() or None
+    raw_football_key = (os.getenv("FOOTBALL_API_KEY", "").strip() or os.getenv("API_FOOTBALL_KEY", "").strip()) or None
     raw_football_data_key = os.getenv("FOOTBALL_DATA_API_KEY", "").strip() or None
     raw_gemini_key = os.getenv("GEMINI_API_KEY", "").strip() or None
     raw_telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None

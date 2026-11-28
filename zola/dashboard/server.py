@@ -275,13 +275,21 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 "timestamp": now_utc_str,
                 "ethiopia_time": ethiopia_str,
                 "status": "SUCCESS",
-                "schedule": "0 2 * * * (05:00 Ethiopia Time / UTC+3)",
+                "system_status": "OPERATIONAL",
+                "schedule": "0 2 * * * (05:00 Ethiopia Time / Africa/Addis_Ababa / 02:00 UTC)",
+                "schedule_eat": "05:00 Africa/Addis_Ababa (EAT / UTC+3)",
                 "provider": primary_client.provider_name,
                 "days_ahead": days_ahead,
                 "start_date": sync_res.get("start_date"),
                 "end_date": sync_res.get("end_date"),
                 "dates_synced": sync_res.get("dates", []),
                 "fixtures_synced": sync_res.get("fixtures_synced", 0),
+                "fixtures_fetched": sync_res.get("fixtures_fetched", sync_res.get("fixtures_synced", 0)),
+                "fixtures_inserted": sync_res.get("fixtures_inserted", sync_res.get("fixtures_synced", 0)),
+                "fixtures_updated": sync_res.get("fixtures_updated", 0),
+                "fixtures_rejected": sync_res.get("fixtures_rejected", 0),
+                "api_errors": sync_res.get("api_errors", 0),
+                "database_errors": 0,
                 "predictions_generated": pred_count,
                 "history_reconciled": hist_settled,
                 "predictions_evaluated": eval_info.get("evaluated", 0),
@@ -305,7 +313,13 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "status": "ERROR",
                 "error": str(e),
-                "schedule": "0 2 * * * (05:00 Ethiopia Time / UTC+3)",
+                "schedule": "0 2 * * * (05:00 Africa/Addis_Ababa / 02:00 UTC)",
+                "fixtures_fetched": 0,
+                "fixtures_inserted": 0,
+                "fixtures_updated": 0,
+                "fixtures_rejected": 0,
+                "api_errors": 1,
+                "database_errors": 0,
             }
             try:
                 repo.save_setting("last_fixture_sync", err_meta)
@@ -457,13 +471,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 if next_run_dt <= now_utc:
                     next_run_dt += timedelta(days=1)
 
+                is_err = bool(last_sync and (last_sync.get("status") == "ERROR" or last_sync.get("api_errors", 0) > 0))
+                system_status = "ERROR" if is_err else "OPERATIONAL"
+
                 self._send_json({
-                    "status": "OPERATIONAL",
-                    "scheduler": "Vercel Cron (/api/cron/sync)",
+                    "status": system_status,
+                    "scheduler": "Vercel Cron (/api/cron/update-fixtures)",
                     "cron_expression": "0 2 * * *",
                     "schedule_human": "Every day at 05:00 Africa/Addis_Ababa (02:00 UTC)",
                     "next_scheduled_run_utc": next_run_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "next_scheduled_run_eat": f"{next_run_dt.strftime('%Y-%m-%d')} 05:00:00 EAT",
+                    "next_scheduled_run_eat": f"{next_run_dt.strftime('%Y-%m-%d')} 05:00:00 Africa/Addis_Ababa (EAT)",
                     "cron_secret_configured": cron_secret_set,
                     "database_stats": stats,
                     "last_sync": last_sync,
@@ -476,7 +493,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 2a. Scheduled Daily Fixture Synchronization (Vercel Cron & Manual GET)
-        if path in ("/api/cron/sync", "/api/cron/fixtures"):
+        if path in ("/api/cron/update-fixtures", "/api/cron/sync", "/api/cron/fixtures", "/api/admin/sync", "/api/admin/sync-now"):
             self._handle_cron_sync(settings, db_path)
             return
 
@@ -1478,7 +1495,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             return
 
         # 0a. Scheduled Daily Fixture Synchronization (POST Trigger)
-        if path in ("/api/cron/sync", "/api/cron/fixtures"):
+        if path in ("/api/cron/update-fixtures", "/api/cron/sync", "/api/cron/fixtures", "/api/admin/sync", "/api/admin/sync-now"):
             self._handle_cron_sync(settings, db_path, body=body)
             return
 

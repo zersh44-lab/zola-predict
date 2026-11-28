@@ -301,3 +301,78 @@ def test_cron_endpoint_auth_and_metadata(sync_db):
     assert meta["status"] == "SUCCESS"
     assert meta["fixtures_synced"] == 5
     conn.close()
+
+
+def test_update_fixtures_route_and_eat_timezone(sync_db):
+    """Verify /api/cron/update-fixtures is routed, authenticated, and sets EAT timezone."""
+    db_file, cid, _ = sync_db
+    settings = Settings(
+        football_api_key="mock_key",
+        cron_secret="test_secret_123",
+        db_path=db_file,
+    )
+    from zola.dashboard.server import DashboardRequestHandler
+    import io
+
+    # Test /api/cron/update-fixtures with Authorization
+    h = DashboardRequestHandler.__new__(DashboardRequestHandler)
+    h.server = MagicMock(settings=settings)
+    h.headers = {"Authorization": "Bearer test_secret_123"}
+    h.path = "/api/cron/update-fixtures?days_ahead=3"
+    h.rfile = io.BytesIO()
+    h.wfile = io.BytesIO()
+
+    with patch("zola.services.collector.FootballCollectorService.sync_upcoming_window") as mock_sync, \
+         patch("zola.prediction.engine.PredictionEngine.predict_upcoming_fixtures") as mock_pred, \
+         patch.object(h, "_send_json") as mock_send:
+        mock_sync.return_value = {
+            "start_date": "2026-11-28",
+            "end_date": "2026-12-01",
+            "days_ahead": 3,
+            "dates": ["2026-11-28", "2026-11-29"],
+            "fixtures_synced": 12,
+            "fixtures_fetched": 12,
+            "fixtures_inserted": 12,
+            "api_errors": 0,
+        }
+        mock_pred.return_value = 12
+
+        h._handle_cron_sync(settings, str(db_file))
+        mock_send.assert_called_once()
+        res = mock_send.call_args[0][0]
+        assert res["success"] is True
+        assert res["sync"]["fixtures_synced"] == 12
+        assert "Africa/Addis_Ababa" in res["sync"]["schedule"]
+        assert "EAT" in res["sync"]["ethiopia_time"]
+
+    # Test /api/admin/sync-status returns OPERATIONAL and correct scheduler
+    h_stat = DashboardRequestHandler.__new__(DashboardRequestHandler)
+    h_stat.server = MagicMock(settings=settings)
+    h_stat.headers = {}
+    h_stat.path = "/api/admin/sync-status"
+    h_stat.rfile = io.BytesIO()
+    h_stat.wfile = io.BytesIO()
+
+    with patch.object(h_stat, "_send_json") as mock_send_stat:
+        # Simulate GET /api/admin/sync-status
+        h_stat.do_GET()
+        mock_send_stat.assert_called_once()
+        stat_data = mock_send_stat.call_args[0][0]
+        assert stat_data["status"] == "OPERATIONAL"
+        assert "/api/cron/update-fixtures" in stat_data["scheduler"]
+        assert "Africa/Addis_Ababa" in stat_data["schedule_human"]
+
+
+def test_api_sports_free_tier_plan_limit_handling():
+    """Verify ApiSportsClient gracefully returns empty list instead of crashing on Free tier date limit."""
+    from zola.client.api_sports import ApiSportsClient
+    from zola.client.base import FootballApiError
+
+    client = ApiSportsClient(api_key="mock_key")
+    with patch.object(client, "_execute_http") as mock_exec:
+        mock_exec.side_effect = FootballApiError("Free plans do not have access to this date, try from 2026-11-27 to 2026-11-29.")
+        fixtures, from_cache, elapsed = client.get_fixtures(date="2026-12-05")
+        assert fixtures == []
+        assert from_cache is False
+        assert elapsed == 0
+
