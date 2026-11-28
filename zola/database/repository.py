@@ -1159,6 +1159,7 @@ class FootballRepository:
             JOIN match_results mr ON f.id = mr.fixture_id
             JOIN predictions p ON f.id = p.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
+              AND f.status = 'FINISHED'
               AND p.model_name = 'ensemble'
               AND f.status NOT LIKE 'INVALID%'
               AND p.status != 'INVALID'
@@ -1191,6 +1192,7 @@ class FootballRepository:
             JOIN match_results mr ON f.id = mr.fixture_id
             JOIN predictions p ON f.id = p.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
+              AND f.status = 'FINISHED'
               AND p.model_name = 'ensemble'
               AND f.status NOT LIKE 'INVALID%'
               AND p.status != 'INVALID'
@@ -1259,6 +1261,7 @@ class FootballRepository:
             JOIN teams at ON f.away_team_id = at.id
             JOIN match_results mr ON f.id = mr.fixture_id
             WHERE mr.full_time_home_score IS NOT NULL
+              AND f.status = 'FINISHED'
               AND f.status NOT LIKE 'INVALID%'
               AND (mr.winner != 'VOID' OR mr.winner IS NULL)
               AND EXISTS (

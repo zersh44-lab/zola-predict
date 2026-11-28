@@ -4394,8 +4394,8 @@
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem;">
             <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
               <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">System Status</div>
-              <div style="font-size: 1.1rem; font-weight: 800; color: ${data.status === 'ERROR' ? '#ef4444' : '#34d399'}; margin-top: 0.2rem;">● ${safeEscape(data.status || 'OPERATIONAL')}</div>
-              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">Auto-sync: Active</div>
+              <div style="font-size: 1.05rem; font-weight: 800; color: ${data.status === 'ERROR' || data.status === 'LAST_SYNC_FAILED' || data.status === 'API_UNAVAILABLE' || data.status === 'DATABASE_UNAVAILABLE' ? '#ef4444' : (data.status === 'SCHEDULER_CONFIGURED_AWAITING_SCHEDULE' ? '#f59e0b' : '#34d399')}; margin-top: 0.2rem;">● ${safeEscape(data.status || 'OPERATIONAL')}</div>
+              <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">${data.last_sync_successful ? 'Last Sync: Success' : (data.last_sync_failed ? 'Last Sync: Failed' : 'Scheduler: Active')}</div>
             </div>
             <div style="background: rgba(13, 30, 54, 0.7); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 8px; padding: 0.85rem;">
               <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Daily Scheduler</div>
@@ -4412,6 +4412,13 @@
               <div style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-top: 0.2rem;">${(s.predictions || 0).toLocaleString()}</div>
               <div style="font-size: 0.7rem; color: #B8F5FF; opacity: 0.8;">Strict OU05/OU15 Allowlist</div>
             </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; background: rgba(7, 20, 38, 0.85); border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 8px; padding: 0.75rem;">
+            <div style="font-size: 0.75rem;"><strong>Scheduler:</strong> <span style="color:${data.scheduler_configured ? '#34d399' : '#ef4444'}">${data.scheduler_configured ? '✓ Configured' : '✗ Missing'}</span></div>
+            <div style="font-size: 0.75rem;"><strong>Cron Execution:</strong> <span style="color:${data.scheduler_executed ? '#34d399' : '#f59e0b'}">${data.scheduler_executed ? '✓ Executed' : '⏳ Awaiting (05:00 EAT)'}</span></div>
+            <div style="font-size: 0.75rem;"><strong>API Link:</strong> <span style="color:${data.api_available ? '#34d399' : '#ef4444'}">${data.api_available ? '✓ Connected' : '✗ Unavailable'}</span></div>
+            <div style="font-size: 0.75rem;"><strong>Database:</strong> <span style="color:${data.database_available ? '#34d399' : '#ef4444'}">${data.database_available ? '✓ Persistent' : '✗ Unavailable'}</span></div>
           </div>
 
           <div style="background: rgba(7, 20, 38, 0.85); border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 10px; padding: 1rem;">
@@ -5309,7 +5316,17 @@
       const secOther = document.getElementById("section-other-competitions-wrap");
 
       if (allFixtures.length === 0) {
-        if (emptyState) emptyState.style.display = "block";
+        if (emptyState) {
+          emptyState.style.display = "block";
+          if (data.subscription_limitation) {
+            const lim = data.subscription_limitation;
+            document.getElementById("empty-state-title").innerText = "API-Football Free Tier Window (3-Day Limit)";
+            document.getElementById("empty-state-desc").innerHTML = `<span style="color:#f59e0b; font-weight:600;">${safeEscape(lim.message)}</span><br><br>The Free plan only grants access to fixtures from <strong>yesterday, today, and tomorrow</strong>. Future fixtures beyond tomorrow require an upgraded API-Football plan or football-data.org tier.`;
+          } else {
+            document.getElementById("empty-state-title").innerText = "No Matches Found";
+            document.getElementById("empty-state-desc").innerText = "No fixtures match these filters for this date. Try changing the category, selecting another date, or clicking Sync.";
+          }
+        }
         if (secFeatured) secFeatured.style.display = "none";
         if (secLive) secLive.style.display = "none";
         if (secComps) secComps.innerHTML = "";

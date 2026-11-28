@@ -255,7 +255,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             pred_count = 0
             try:
                 engine = PredictionEngine(repo)
-                pred_count = engine.predict_upcoming_fixtures(days_ahead=max(days_ahead, 7), limit=500)
+                pred_count = engine.predict_upcoming_fixtures(days_ahead=max(days_ahead, 7), limit=30)
             except Exception as pe:
                 logger.warning("Prediction generation notice during cron sync: %s", pe)
 
@@ -452,44 +452,77 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         if path in ("/api/admin/sync-status", "/api/sync/status"):
             import os
             from pathlib import Path
-            conn = get_connection(db_path)
+            conn = None
+            db_available = False
+            stats = {}
+            last_sync = None
             try:
+                conn = get_connection(db_path)
                 repo = FootballRepository(conn)
                 stats = repo.get_database_stats()
+                db_available = True
                 last_sync = DashboardRequestHandler._LAST_CRON_SYNC or repo.get_setting("last_fixture_sync")
-                if not last_sync:
-                    try:
-                        tmp_sync_file = Path("/tmp/last_fixture_sync.json")
-                        if tmp_sync_file.exists():
-                            last_sync = json.loads(tmp_sync_file.read_text(encoding="utf-8"))
-                    except Exception:
-                        pass
+            except Exception as e:
+                db_available = False
+                logger.error("Database health check notice on sync-status: %s", e)
 
-                cron_secret_set = bool(getattr(settings, "cron_secret", None) or os.getenv("CRON_SECRET"))
-                now_utc = datetime.now(timezone.utc)
-                next_run_dt = now_utc.replace(hour=2, minute=0, second=0, microsecond=0)
-                if next_run_dt <= now_utc:
-                    next_run_dt += timedelta(days=1)
+            if not last_sync:
+                try:
+                    tmp_sync_file = Path("/tmp/last_fixture_sync.json")
+                    if tmp_sync_file.exists():
+                        last_sync = json.loads(tmp_sync_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
 
-                is_err = bool(last_sync and (last_sync.get("status") == "ERROR" or last_sync.get("api_errors", 0) > 0))
-                system_status = "ERROR" if is_err else "OPERATIONAL"
+            cron_secret_set = bool(getattr(settings, "cron_secret", None) or os.getenv("CRON_SECRET"))
+            now_utc = datetime.now(timezone.utc)
+            next_run_dt = now_utc.replace(hour=2, minute=0, second=0, microsecond=0)
+            if next_run_dt <= now_utc:
+                next_run_dt += timedelta(days=1)
 
-                self._send_json({
-                    "status": system_status,
-                    "scheduler": "Vercel Cron (/api/cron/update-fixtures)",
-                    "cron_expression": "0 2 * * *",
-                    "schedule_human": "Every day at 05:00 Africa/Addis_Ababa (02:00 UTC)",
-                    "next_scheduled_run_utc": next_run_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "next_scheduled_run_eat": f"{next_run_dt.strftime('%Y-%m-%d')} 05:00:00 Africa/Addis_Ababa (EAT)",
-                    "cron_secret_configured": cron_secret_set,
-                    "database_stats": stats,
-                    "last_sync": last_sync,
-                    "auto_sync_fallback": True,
-                    "provider": settings.football_api_provider,
-                    "rate_limit_rpm": settings.rate_limit_rpm,
-                })
-            finally:
+            api_key_set = bool(getattr(settings, "football_api_key", None) and str(settings.football_api_key).strip())
+            scheduler_configured = True
+            scheduler_executed = bool(last_sync and (last_sync.get("cron") or last_sync.get("schedule")))
+            last_sync_successful = bool(last_sync and last_sync.get("status") == "SUCCESS" and last_sync.get("api_errors", 0) == 0)
+            last_sync_failed = bool(last_sync and (last_sync.get("status") == "ERROR" or last_sync.get("api_errors", 0) > 0))
+
+            if not db_available:
+                system_status = "DATABASE_UNAVAILABLE"
+            elif not api_key_set:
+                system_status = "API_UNAVAILABLE"
+            elif last_sync_failed:
+                system_status = "LAST_SYNC_FAILED"
+            elif last_sync_successful:
+                system_status = "OPERATIONAL"
+            elif scheduler_configured and not scheduler_executed:
+                system_status = "SCHEDULER_CONFIGURED_AWAITING_SCHEDULE"
+            else:
+                system_status = "OPERATIONAL"
+
+            response_data = {
+                "status": system_status,
+                "state": "LAST_SYNC_SUCCESSFUL" if last_sync_successful else system_status,
+                "scheduler_configured": scheduler_configured,
+                "scheduler_executed": scheduler_executed,
+                "last_sync_successful": last_sync_successful,
+                "last_sync_failed": last_sync_failed,
+                "api_available": api_key_set,
+                "database_available": db_available,
+                "scheduler": "Vercel Cron (/api/cron/update-fixtures)",
+                "cron_expression": "0 2 * * *",
+                "schedule_human": "Every day at 05:00 Africa/Addis_Ababa (02:00 UTC)",
+                "next_scheduled_run_utc": next_run_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "next_scheduled_run_eat": f"{next_run_dt.strftime('%Y-%m-%d')} 05:00:00 Africa/Addis_Ababa (EAT)",
+                "cron_secret_configured": cron_secret_set,
+                "database_stats": stats,
+                "last_sync": last_sync,
+                "auto_sync_fallback": True,
+                "provider": settings.football_api_provider,
+                "rate_limit_rpm": settings.rate_limit_rpm,
+            }
+            if conn:
                 conn.close()
+            self._send_json(response_data, 503 if not db_available else 200)
             return
 
         # 2a. Scheduled Daily Fixture Synchronization (Vercel Cron & Manual GET)
@@ -616,9 +649,18 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     try:
                         target_dt = datetime.strptime(eff_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
                         diff_days = (target_dt.date() - now_utc.date()).days
-                        is_upcoming = -1 <= diff_days <= 7
+                        is_upcoming = -1 <= diff_days <= 1
                     except Exception:
                         is_upcoming = False
+                        diff_days = 0
+
+                    if diff_days > 1:
+                        discovery_data["subscription_limitation"] = {
+                            "plan": "API-Football Free Tier",
+                            "supported_range": "yesterday, today, tomorrow",
+                            "requested_date": eff_date,
+                            "message": f"Date {eff_date} is outside the API-Football Free plan window (yesterday to tomorrow). Fixtures for dates beyond tomorrow require a paid plan subscription.",
+                        }
 
                     synced_cache = getattr(self.__class__, "_auto_synced_dates", set())
                     if is_upcoming and eff_date not in synced_cache and getattr(settings, "football_api_key", None):
@@ -643,7 +685,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                             # Trigger pre-match predictions for upcoming matches on this date
                             try:
                                 engine = PredictionEngine(repo)
-                                engine.predict_upcoming_fixtures(days_ahead=max(diff_days + 1, 1), limit=150)
+                                engine.predict_upcoming_fixtures(days_ahead=max(diff_days + 1, 1), limit=15)
                             except Exception as pe:
                                 logger.warning("Prediction generation notice during auto-sync: %s", pe)
 

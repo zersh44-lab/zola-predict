@@ -346,11 +346,17 @@ class FootballCollectorService:
                     total_synced += count
                     cached = res.get("cache_hit", False)
                     logger.info("API-Football date %s: %d fixtures synced (cache=%s)", cur_date, count, cached)
+                    # If free-plan date limit reached via API-Sports client, stop probing future dates
+                    if getattr(api_client, "_plan_limit_reached", False):
+                        logger.info("API-Football Free tier date limit reached at date %s. Stopping rolling window scan.", cur_date)
+                        break
                     # Respect API-Football 10 RPM free-tier limit with 6.5s pacing between live calls outside serverless/tests
                     if not cached and d < min(days_ahead, 7) and not os.environ.get("VERCEL") and not os.environ.get("PYTEST_CURRENT_TEST"):
                         time.sleep(6.5)
                 except Exception as e:
                     logger.warning("API-Football sync date %s notice: %s", cur_date, e)
+                    if "plan" in str(e).lower():
+                        break
         else:
             for d in range(days_ahead + 1):
                 cur_date = (base_dt + timedelta(days=d)).strftime("%Y-%m-%d")
